@@ -3,16 +3,15 @@
 #include "std_msgs/String.h"
 #include <stdlib.h>
 
+#include "distributed_mapf/Vertex.h"
+#include "distributed_mapf/PathMsg.h"
+
 const std::string plan_topic = "plan_topic";
 
 class Agent {
 private:
-	static void plan_comm_callback(const distributed_mapf::PathMsg& msg) {
-		if (agent_id_ != msg.sender_id) {
-			ROS_INFO("I heard a plan message from agent [%s]", std::to_string(msg.sender_id).c_str());
-		}
-	}
-
+	static void plan_subscribe_callback(const distributed_mapf::PathMsg& msg);
+		
 public:
 	Agent(ros::NodeHandle *n): n_(n) {}
 
@@ -20,7 +19,7 @@ public:
     	plan_publish_ = n_->advertise<distributed_mapf::PathMsg>(plan_topic, 1000);
     	test_publish_ = n_->advertise<std_msgs::String>("chatter", 1000);
 
-    	plan_subscribe_ = n_->subscribe(plan_topic, 1000, Agent::plan_comm_callback);
+    	plan_subscribe_ = n_->subscribe(plan_topic, 1000, Agent::plan_subscribe_callback);
     }
 
     void publishPlan(const distributed_mapf::PathMsg& msg) {

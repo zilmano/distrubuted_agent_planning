@@ -129,7 +129,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(agent src/agent_main.cc)
+add_executable(agent src/agent.cc src/agent_main.cc)
 
 
 
