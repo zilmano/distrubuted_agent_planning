@@ -7,7 +7,21 @@
 
 #include "distributed_mapf/Vertex.h"
 #include "distributed_mapf/PathMsg.h"
-#include "../include/agent.h"  
+#include "agent.h"  
+
+
+agent::Agent* agent_;
+
+
+void planCallback(const distributed_mapf::PathMsg& msg) {
+    agent_->PlanMsgCallback(msg);
+}
+
+
+void initComm(ros::NodeHandle& n) {
+  n.subscribe(plan_topic, 1000, planCallback);
+  agent_->InitPublishers();
+}
 
 int main(int argc, char **argv)
 {
@@ -19,17 +33,15 @@ int main(int argc, char **argv)
 
   ros::init(argc, argv, node_name);
   ros::NodeHandle n;
-  Agent agent(&n);
-  agent.setAgentId(pid);
-  
 
-  ros::Rate loop_rate(10);
-  agent.initComm();
+  agent::Params params;
+  agent_ = new agent::Agent(&n, params, pid);
    
    /**
    * A count of how many messages we have sent. This is used to create
    * a unique string for each message.
    */
+  ros::Rate loop_rate(10);
   int count = 0;
   while (ros::ok()) {
       /**
@@ -52,7 +64,7 @@ int main(int argc, char **argv)
       * in the constructor above.
       */
       //agent.publishTest(msg);
-      agent.publishPlan(msg);
+      agent_->PublishPlan(msg);
 
 
       ros::spinOnce();
