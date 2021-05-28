@@ -12,14 +12,16 @@
 #include "planning.h"
 #include "amrl/vector_map/vector_map.h"
 #include "amrl/math/line2d.h"
+#include <unordered_set>
 
 
 using std::cout;
 using std::endl;
+using std::priority_queue;
+using std::map;
+using std::vector;
+using std::unordered_set;
 namespace planning {
-    
-    
-
     
     /* 
      * Graph Class
@@ -198,6 +200,11 @@ namespace planning {
           return 2*M_PI*(1+frac);
     }
 
+    /*
+     * Astar class 
+     */
+
+
     std::list<GraphIndex> A_star::generatePath(const navigation::PoseSE2& start, const navigation::PoseSE2& goal, const bool& heuristic){
 
         //cout << "\n\nStarting generatePath..." << endl;
@@ -356,6 +363,119 @@ namespace planning {
       return intersect_found;
     }
 
+    /*
+     *  MultiAgentAstar class
+     */ 
+
+    bool MultiAgentAstar::generatePath(list<JointState>& path, bool heuristic){
+
+        //cout << "\n\nStarting generatePath..." << endl;
+        //       debug::print_loc(start.loc," start loc", false);
+        //       debug::print_loc(goal.loc," goal loc", true);
+
+        //findStartAndGoalVertex(start, goal);
+
+        start_ = graph_.GetStartNode();
+        goal_ = graph_.GetGoalNode();
+
+        priority_queue<element, vector<element>, std::greater<element>> frontier;
+        unordered_map<long int, MultiAgentGraph::NodePtr> came_from;
+        unordered_map<long int, double> cost_so_far;
+        unordered_set<long int> expanded; 
+
+        frontier.emplace(0, start_);
+        //came_from[start_.jointState] = start_.jointState;
+        cost_so_far[graph_.GetFlatIndexFromJointState(start_)] = 0;
+        
+        while (true){
+            if (frontier.empty()) {
+                return false; 
+            }
+
+            MultiAgentGraph::NodePtr current = frontier.top().second;
+            frontier.pop();
+            //costart_.jointState"Start\t X id:" << start_.x << " Start\t Y id:" << start_.y << std::endl;
+            // cout << "Goal\t X id:" << goal_.x << " Goal\t Y id:" << goal_.y << std::endl;
+            // cout << "Current X id:" << current.x << " Current Y id:" << current.y << std::endl;
+            // cout << "Cost_so_far size: " << cost_so_far.size() << std::endl;
+            
+            if(*current == *goal_){
+                break;
+            }
+
+            if (expanded.find(graph_.GetFlatIndexFromJointState(current)) 
+                                                             != expanded.end()) {
+                continue; 
+            }
+            
+            expanded.insert(graph_.GetFlatIndexFromJointState(current));
+
+            for(auto &neighbor : current->neighbors){
+                //cout << "Neighbor: " << "X id:" << neighbor.x << " Y id:" << neighbor.y << std::endl;
+                double new_cost = 
+                    cost_so_far[graph_.GetFlatIndexFromJointState(current)] + 
+                    calcCost(current->jointState, neighbor->jointState);
+                
+                if (heuristic)
+                    new_cost += calcHeuristic(neighbor->jointState);
+
+                //cout << "Neighbor cost:" << new_cost << " Current Cost:" << cost_so_far[current] << std::endl;
+                if(cost_so_far.find(graph_.GetFlatIndexFromJointState(neighbor)) == cost_so_far.end() 
+                    || new_cost < cost_so_far[graph_.GetFlatIndexFromJointState(neighbor)]){
+                    cost_so_far[graph_.GetFlatIndexFromJointState(neighbor)] = new_cost;
+                    came_from[graph_.GetFlatIndexFromJointState(neighbor)] = current;
+                    //cout << "New cost found" << std::endl;
+                    frontier.emplace(new_cost, current);
+
+                }
+            }
+        }
+        
+        goal_cost_ = cost_so_far[graph_.GetFlatIndexFromJointState(goal_)];
+        //cout << "A* start Done." << std::endl;
+
+        MultiAgentGraph::NodePtr current = goal_;
+        while(current != start_){
+            path.push_front(came_from[graph_.GetFlatIndexFromJointState(current)]->jointState);
+            current = came_from[graph_.GetFlatIndexFromJointState(current)];
+        }
+
+        path_ = path;
+        return true;
+        
+    }
+
+    double MultiAgentAstar::calcCost(const JointState& currentVertex, 
+                                     const JointState& nextVertex){
+        // Calculate cost in term of time steps.
+        unsigned int cost  = 0;
+        for (size_t i = 0; i < graph_.numOfAgents(); ++i) {
+            cost += std::sqrt(
+                std::pow(nextVertex[i].x - currentVertex[i].x, 2) + 
+                std::pow(nextVertex[i].y - currentVertex[i].y, 2)
+            );
+            cost /= speed_;
+        }
+        return cost;
+        
+    }
+
+    double MultiAgentAstar::calcHeuristic(const JointState& nextVertex) {
+
+        // Calculate euclidian distanance heuristic, in terms of time steps.
+        unsigned int cost  = 0;
+        JointState goal = graph_.GetGoalState();
+        for (size_t i = 0; i < graph_.numOfAgents(); ++i) {
+            cost += std::sqrt(
+                std::pow(nextVertex[i].x - goal[i].x, 2) + 
+                std::pow(nextVertex[i].y - goal[i].y, 2)
+            );
+            cost /= speed_;
+        }
+        
+        return cost;
+    }
+   
 }
 
 

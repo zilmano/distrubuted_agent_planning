@@ -102,7 +102,6 @@ typedef vector<list<GraphIndex>> vec_1d;
 typedef vector<vec_1d> vec_2d;
 typedef vector<vec_2d> vec_3d;
 typedef vec_3d Vertices;
-typedef std::pair<double, planning::GraphIndex> element;
 
 
 class Graph {
@@ -129,14 +128,14 @@ public:
     Eigen::Vector2f GetLocFromVertexIndex(int index_x, int index_y);
     void AddWallToGraph(const geometry::line2f&  line){};
 
-    int getNumVerticesX(){
+    int getNumVerticesX() const {
         return num_vertices_x_;
     }
-    int getNumVerticesY(){
+    int getNumVerticesY() const{
         return num_vertices_y_;
     }
 
-    int getNumOrient(){
+    int getNumOrient() const{
         return num_of_orient_;
     }
 
@@ -181,8 +180,16 @@ public:
     struct Node {
         explicit Node(vector<GraphIndex> state): jointState(state) {};
         //vector<navigation::PoseSE2> poses;
+
+        bool operator==(const Node& rhs) const {
+            if (this->jointState == rhs.jointState)
+                return true;
+            return false;
+        };
+
         vector<GraphIndex> jointState;
         list<std::shared_ptr<Node>> neighbors;
+    
     };
 
     typedef std::shared_ptr<Node> NodePtr;
@@ -191,8 +198,23 @@ public:
 
     explicit MultiAgentGraph(): root_(NULL) {};
 
+    bool GetVertex(vector<GraphIndex> state, NodePtr& vertex) const {
+        long int flatIndex = GetFlatIndexFromJointState(state);
+        unordered_map<long int, NodePtr>::const_iterator it = 
+                                                    vertices_.find(flatIndex);
+        if (it == vertices_.end()) {
+            // throw error?
+            std::string msg = "MultiAgentGraph::GetVertex:: Requested Vertex is out of bounds.";
+            cout << msg << endl;
+            throw;
+            //return false;
+        }
+        vertex = it->second;
+        return true;
+    };
+
     bool GetVertexNeighbors(vector<GraphIndex> state, Neighbors& neighbors) {
-        long int flatIndex = GetFlatIndexFromAgentIndexes(state);
+        long int flatIndex = GetFlatIndexFromJointState(state);
         if (vertices_.find(flatIndex) == vertices_.end()) {
             // throw error?
             std::string msg = "MultiAgentGraph::GetVertex:: Requested Vertex is out of bounds.";
@@ -220,8 +242,35 @@ public:
         root_ = NULL;
         jointStartState_.clear();
         jointGoalState_.clear();
-
     };
+
+    vector<GraphIndex>  GetStartState() const {
+        return jointStartState_;
+    
+    };
+
+    vector<GraphIndex> GetGoalState() const {
+        return jointGoalState_;
+    };
+
+    NodePtr GetStartNode() const {
+        return root_;
+    };
+
+    NodePtr GetGoalNode() const {
+        NodePtr endNode;
+        GetVertex(jointGoalState_, endNode);
+        return endNode;
+    };
+
+    long int GetFlatIndexFromJointState(NodePtr node) const {
+        return GetFlatIndexFromJointState(node->jointState);
+    };
+
+    unsigned int numOfAgents() const {
+        return agentGraphs_.size();
+    };
+
 
     void AddAgentToJointSpace(const Graph& agentGraph, unsigned int agentId,                      GraphIndex startVertex, 
                               GraphIndex endVertex) {
@@ -272,7 +321,7 @@ private:
 
     NodePtr AddNode(const vector<GraphIndex>& jointState,
                     queue<NodePtr>& nodeQueue) {
-        long int flatIndex = GetFlatIndexFromAgentIndexes(jointState);
+        long int flatIndex = GetFlatIndexFromJointState(jointState);
         if (vertices_.find(flatIndex) == vertices_.end()) {
             NodePtr newNode(new Node(jointState));
             vertices_[flatIndex] = newNode;
@@ -332,7 +381,7 @@ private:
         
     //void AddEdge(std::size_t vertex,  std::size_t neighbor);
     //bool CheckNoCollisionVertex(const Node& node);
-    long int GetFlatIndexFromAgentIndexes(const vector<GraphIndex>& state) 
+    long int GetFlatIndexFromJointState(const vector<GraphIndex>& state) const
     {
         long int flatIndex = 0;
         int prevSize = 1;
@@ -360,6 +409,8 @@ private:
 
 
 class A_star{
+public:
+    typedef std::pair<double, planning::GraphIndex> element;
 
 public:
     A_star():start_(GraphIndex(0,0,0)), goal_(GraphIndex(0,0,0)) {};
@@ -400,42 +451,36 @@ private:
 };
 
 
-}
-
 class MultiAgentAstar {
-typedef vector<GraphIndex> JointState;
+public:
+    typedef vector<GraphIndex> JointState;
+    typedef std::pair<double, MultiAgentGraph::NodePtr> element;
 public:
     //A_star():start_(GraphIndex(0,0,0)), goal_(GraphIndex(0,0,0)) {};
-    A_star(Graph graph, speed, time_step):
-          graph_(graph), speed_(speed), time_step_(time_step){};
+    MultiAgentAstar(MultiAgentGraph graph, double speed,double time_step):
+          graph_(graph), speed_(speed), time_step_(time_step),
+          start_(nullptr), goal_(nullptr) {};
 
-    std::list<JointState> generatePath(bool heuristic = true);
-
-    std::map<JointState, float> generateDijCost();
-
-    double calcCost(const JointState& current, const JointState& next);
-
-    double calcHeuristic(const JointState& next);
-
-    bool getPurePursuitCarrot(Eigen::Vector2f center,
-                                         float radius,
-                                         Eigen::Vector2f& interim_goal);
-
+    bool generatePath(list<JointState>& path, bool heuristic = true);
+    //std::map<JointState, float> generateDijCost();
 
 private:
     //void findStartAndGoalVertex(const navigation::PoseSE2& start,
     //                            const navigation::PoseSE2& goal);
+    double calcCost(const JointState& current, const JointState& next);
+    double calcHeuristic(const JointState& next);
 
 private:
-    MultuAgentGraph graph_;   
+    MultiAgentGraph graph_;   
     std::list<JointState> path_;
     //std::list<GraphIndex>::const_iterator curr_path_vertex_;
-    //float location_cost_;
-    float speed;
-    float time_step;
+    float goal_cost_;
+    MultiAgentGraph::NodePtr start_;
+    MultiAgentGraph::NodePtr goal_;
+    double speed_;
+    double time_step_;
 
 };
-
 
 }
 
