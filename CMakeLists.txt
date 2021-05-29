@@ -11,6 +11,12 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   message_generation
+  visualization_msgs
+  rosbag
+  geometry_msgs
+  nav_msgs
+  tf
+  rostime
 )
 
 ## System dependencies are found with CMake's conventions
@@ -120,6 +126,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   src/
   src/amrl/
+  src/utils/
 )
 
 ## Declare a C++ library
@@ -127,7 +134,7 @@ add_library(utils_lib
     src/amrl/vector_map/vector_map.cc
     src/planning/planning.cc  
     src/amrl/visualization/visualization.cc
-
+    src/utils/timer.cc
 )
 
 

@@ -9,7 +9,8 @@
 #include "planning/planning.h"
 
 const std::string plan_topic = "plan_topic";
-const std::string map_file = "test_map.txt";
+//const std::string location_topic = "loc_topic";
+const std::string default_map = "GDC1";
 
 namespace agent {
 
@@ -55,9 +56,27 @@ public:
     	params_ = p;
     }
 
-    
-    void LoadMap() {
-    	map_.Load(map_file);
+    planning::Graph GetLocalGraph() const {
+    	return graph_;
+    }
+
+	list<planning::GraphIndex> GetPlan() const {
+    	return local_Astar_.getPlan();
+    }
+
+    void LoadMap(std::string map_file = "") {
+    	if (map_file.size() == 0) {
+    		map_file = default_map;
+    	}
+
+    	std::string full_map_file;
+    	if (map_file.find('.') == std::string::npos) {
+       		full_map_file = "maps/" + map_file + "/" + map_file + ".vectormap.txt";
+    	} else {
+       		full_map_file = map_file;
+    	}
+    	
+    	map_.Load(full_map_file);
     	graph_ = planning::Graph(params_.plan_grid_pitch,
                               params_.plan_x_start,
                               params_.plan_x_end,
@@ -66,10 +85,22 @@ public:
                               params_.plan_num_of_orient,
                               params_.plan_margin_to_wall,
                               map_);
+    	
     	local_Astar_ = planning::A_star(graph_);
+    	//mapf_Astar_.Init(graph_, );
+
+
     }
 
     void PlanMsgCallback(const distributed_mapf::PathMsg& msg);
+
+    void Plan(const navigation::PoseSE2& start, 
+    		  const navigation::PoseSE2& goal) {
+
+    	local_Astar_.generatePath(start, goal);
+    };
+
+    
 
 private:
 	ros::NodeHandle* n_;
@@ -80,11 +111,10 @@ private:
 	unsigned int agent_id_;
 	planning::Graph graph_;
 	planning::A_star local_Astar_;
-	planning::A_star global_Astar_;
+	std::shared_ptr<planning::MultiAgentAstar> mapf_Astar_;
 	vector_map::VectorMap map_;
     
     Params params_;
-    	
 	//vector clock 
 };
 };

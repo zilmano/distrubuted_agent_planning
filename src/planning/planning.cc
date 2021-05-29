@@ -375,17 +375,17 @@ namespace planning {
 
         //findStartAndGoalVertex(start, goal);
 
-        start_ = graph_.GetStartNode();
-        goal_ = graph_.GetGoalNode();
+        MultiAgentGraph::NodePtr start = graph_.GetStartNode();
+        MultiAgentGraph::NodePtr goal  = graph_.GetGoalNode();
 
         priority_queue<element, vector<element>, std::greater<element>> frontier;
         unordered_map<long int, MultiAgentGraph::NodePtr> came_from;
         unordered_map<long int, double> cost_so_far;
         unordered_set<long int> expanded; 
 
-        frontier.emplace(0, start_);
+        frontier.emplace(0, start);
         //came_from[start_.jointState] = start_.jointState;
-        cost_so_far[graph_.GetFlatIndexFromJointState(start_)] = 0;
+        cost_so_far[graph_.GetFlatIndexFromJointState(start)] = 0;
         
         while (true){
             if (frontier.empty()) {
@@ -399,7 +399,7 @@ namespace planning {
             // cout << "Current X id:" << current.x << " Current Y id:" << current.y << std::endl;
             // cout << "Cost_so_far size: " << cost_so_far.size() << std::endl;
             
-            if(*current == *goal_){
+            if(*current == *goal){
                 break;
             }
 
@@ -431,11 +431,11 @@ namespace planning {
             }
         }
         
-        goal_cost_ = cost_so_far[graph_.GetFlatIndexFromJointState(goal_)];
+        goal_cost_ = cost_so_far[graph_.GetFlatIndexFromJointState(goal)];
         //cout << "A* start Done." << std::endl;
 
-        MultiAgentGraph::NodePtr current = goal_;
-        while(current != start_){
+        MultiAgentGraph::NodePtr current = goal;
+        while(current != start){
             path.push_front(came_from[graph_.GetFlatIndexFromJointState(current)]->jointState);
             current = came_from[graph_.GetFlatIndexFromJointState(current)];
         }
@@ -449,12 +449,21 @@ namespace planning {
                                      const JointState& nextVertex){
         // Calculate cost in term of time steps.
         unsigned int cost  = 0;
-        for (size_t i = 0; i < graph_.numOfAgents(); ++i) {
-            cost += std::sqrt(
+        JointState goal = graph_.GetGoalState();
+        for (size_t i = 0; i < graph_.NumOfAgents(); ++i) {
+            unsigned int eucldist = std::sqrt(
                 std::pow(nextVertex[i].x - currentVertex[i].x, 2) + 
                 std::pow(nextVertex[i].y - currentVertex[i].y, 2)
             );
-            cost /= speed_;
+
+            if (eucldist == 0) {
+                if (nextVertex[i] != goal[i]) {
+                    cost += 1;
+                }
+            } else {
+                cost += eucldist/speed_;
+            
+            }
         }
         return cost;
         
@@ -465,7 +474,7 @@ namespace planning {
         // Calculate euclidian distanance heuristic, in terms of time steps.
         unsigned int cost  = 0;
         JointState goal = graph_.GetGoalState();
-        for (size_t i = 0; i < graph_.numOfAgents(); ++i) {
+        for (size_t i = 0; i < graph_.NumOfAgents(); ++i) {
             cost += std::sqrt(
                 std::pow(nextVertex[i].x - goal[i].x, 2) + 
                 std::pow(nextVertex[i].y - goal[i].y, 2)

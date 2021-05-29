@@ -19,6 +19,10 @@
 #include <iostream>
 
 
+#include "eigen3/Eigen/Dense"
+#include "eigen3/Eigen/Geometry"
+
+
 namespace vector_map {
     class VectorMap;
 };
@@ -196,7 +200,7 @@ public:
     typedef list<NodePtr> Neighbors;
     typedef std::pair<GraphIndex, GraphIndex> StartGoalPair;
 
-    explicit MultiAgentGraph(): root_(NULL) {};
+    explicit MultiAgentGraph(): root_(nullptr) {};
 
     bool GetVertex(vector<GraphIndex> state, NodePtr& vertex) const {
         long int flatIndex = GetFlatIndexFromJointState(state);
@@ -239,7 +243,7 @@ public:
         agentIndexToAgentId_.clear();
         agentGraphs_.clear();
         agentStartsGoals_.clear();
-        root_ = NULL;
+        root_ = nullptr;
         jointStartState_.clear();
         jointGoalState_.clear();
     };
@@ -267,7 +271,7 @@ public:
         return GetFlatIndexFromJointState(node->jointState);
     };
 
-    unsigned int numOfAgents() const {
+    unsigned int NumOfAgents() const {
         return agentGraphs_.size();
     };
 
@@ -427,6 +431,8 @@ public:
         return location_cost_;
     };
 
+    std::list<GraphIndex> getPlan() const { return path_; };
+
     double calcCost(const GraphIndex& current, const GraphIndex& next);
 
     double calcHeuristic(const GraphIndex& next);
@@ -434,6 +440,9 @@ public:
     bool getPurePursuitCarrot(Eigen::Vector2f center,
                                          float radius,
                                          Eigen::Vector2f& interim_goal);
+
+    GraphIndex GetGoalIndex() const { return goal_; };
+    GraphIndex GetStartIndex() const { return start_; };
 
 
 private:
@@ -457,9 +466,16 @@ public:
     typedef std::pair<double, MultiAgentGraph::NodePtr> element;
 public:
     //A_star():start_(GraphIndex(0,0,0)), goal_(GraphIndex(0,0,0)) {};
-    MultiAgentAstar(MultiAgentGraph graph, double speed,double time_step):
-          graph_(graph), speed_(speed), time_step_(time_step),
-          start_(nullptr), goal_(nullptr) {};
+    explicit MultiAgentAstar() {};
+    explicit MultiAgentAstar(MultiAgentGraph graph, double speed, double time_step) {
+        Init(graph, speed, time_step);
+    };
+    
+    void Init(MultiAgentGraph graph, double speed,double time_step) {
+        graph_ = graph; 
+        speed_ = speed;
+        time_step_ = time_step;
+    };
 
     bool generatePath(list<JointState>& path, bool heuristic = true);
     //std::map<JointState, float> generateDijCost();
@@ -475,8 +491,6 @@ private:
     std::list<JointState> path_;
     //std::list<GraphIndex>::const_iterator curr_path_vertex_;
     float goal_cost_;
-    MultiAgentGraph::NodePtr start_;
-    MultiAgentGraph::NodePtr goal_;
     double speed_;
     double time_step_;
 
