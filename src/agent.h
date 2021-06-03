@@ -33,7 +33,8 @@ struct Params {
 class Agent {
 
 public:
-	Agent(ros::NodeHandle *n, Params params, unsigned int id): n_(n), params_(params), agent_id_(id) {}
+	Agent(ros::NodeHandle *n, Params params, unsigned int id): 
+		n_(n), params_(params), agent_id_(id), done_(false) {}
 
     void InitPublishers() {
     	plan_publish_ = n_->advertise<distributed_mapf::PathMsg>(plan_topic, 1000);
@@ -63,6 +64,14 @@ public:
 	list<planning::GraphIndex> GetPlan() const {
     	return local_Astar_.getPlan();
     }
+
+    planning::GraphIndex GetStartVertex() const {
+    	return local_Astar_.GetStartIndex();
+    }
+
+	planning::GraphIndex GetGoalVertex() const {
+    	return local_Astar_.GetGoalIndex();
+    }    
 
     void LoadMap(std::string map_file = "") {
     	if (map_file.size() == 0) {
@@ -97,7 +106,7 @@ public:
     void Plan(const navigation::PoseSE2& start, 
     		  const navigation::PoseSE2& goal) {
 
-    	local_Astar_.generatePath(start, goal);
+    	done_ = !(local_Astar_.generatePath(start, goal));
     };
 
     
@@ -115,6 +124,8 @@ private:
 	vector_map::VectorMap map_;
     
     Params params_;
+
+    bool done_;
 	//vector clock 
 };
 };
