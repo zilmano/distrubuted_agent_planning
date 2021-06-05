@@ -143,6 +143,7 @@ add_library(utils_lib
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(agent src/agent.cc src/agent_main.cc)
 add_executable(test_agent src/agent.cc src/agent_test.cc)
+add_executable(second_agent src/agent_secondary.cc src/agent.cc)
 
 
 
@@ -152,6 +153,7 @@ add_executable(test_agent src/agent.cc src/agent_test.cc)
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(agent distributed_mapf_generate_messages_cpp)
 add_dependencies(test_agent distributed_mapf_generate_messages_cpp)
+add_dependencies(second_agent distributed_mapf_generate_messages_cpp)
 
 
 
@@ -168,6 +170,7 @@ add_dependencies(test_agent distributed_mapf_generate_messages_cpp)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(test_agent ${catkin_LIBRARIES} utils_lib glog)
+target_link_libraries(second_agent ${catkin_LIBRARIES} utils_lib glog)
 
 
 #############

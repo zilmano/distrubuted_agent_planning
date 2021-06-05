@@ -22,9 +22,6 @@ ros::Publisher visualization_pub_;
 amrl_msgs::VisualizationMsg map_viz_msg_;
 
 
-
-
-
 void planCallback(const distributed_mapf::PathMsg& msg) {
     agent_->PlanMsgCallback(msg);
 }
@@ -69,6 +66,7 @@ void testVisualizeGraph(planning::Graph& graph){
 
 void testVisualizePath(planning::Graph graph, list<planning::GraphIndex> plan,
                        uint32_t color=0x000FF){
+  visualization::ClearVisualizationMsg(map_viz_msg_);
   for(const auto& node : plan)
   {
     Eigen::Vector2f node_loc = graph.GetLocFromVertexIndex(node.x,node.y);
@@ -78,9 +76,6 @@ void testVisualizePath(planning::Graph graph, list<planning::GraphIndex> plan,
   //std::cout << std::endl;
   visualization_pub_.publish(map_viz_msg_);
 }
-
-
-
 
 
 void testGenGraph(ros::NodeHandle& n) {
@@ -106,7 +101,7 @@ planning::MultiAgentGraph mapfGraph_;
 planning::MultiAgentAstar mapfAstar_;
 
 void testAddAgents(ros::NodeHandle& n) {
-   visualization_pub_ =
+  visualization_pub_ =
     n.advertise<amrl_msgs::VisualizationMsg>("visualization", 1);
   
   map_viz_msg_ = 
@@ -128,9 +123,12 @@ void testAddAgents(ros::NodeHandle& n) {
   agent_->Plan(start, goal);
   path1_ = agent_->GetPlan(); 
 
-  
-  mapfGraph_.AddAgentToJointSpace(agentGraph, 1, agent_->GetStartVertex(),
+  mapfGraph_.AddAgentGraph(agentGraph);
+  mapfGraph_.AddAgentToJointSpace(1, agent_->GetStartVertex(),
                                  agent_->GetGoalVertex());
+  cout << "Agent start/end vertices: " << agent_->GetStartVertex().pprint(true) << ", " 
+                                       << agent_->GetGoalVertex().pprint(true, true) << endl;
+
 
   cout << "Planning agent 2..." << endl;
 
@@ -141,8 +139,11 @@ void testAddAgents(ros::NodeHandle& n) {
 
   agent_->Plan(start, goal);
   path2_ = agent_->GetPlan(); 
-  mapfGraph_.AddAgentToJointSpace(agentGraph, 2, agent_->GetStartVertex(),
+  mapfGraph_.AddAgentToJointSpace(2, agent_->GetStartVertex(),
                                  agent_->GetGoalVertex());
+  cout << "Agent start/end vertices: " << agent_->GetStartVertex().pprint(true) << ", "
+                                       << agent_->GetGoalVertex().pprint(true, true) << endl;
+
 
   cout << "Planning agent 3..." << endl;
 
@@ -150,13 +151,15 @@ void testAddAgents(ros::NodeHandle& n) {
   goal = navigation::PoseSE2(-13, 18, 0);
   agent_->Plan(start, goal);
   path3_ = agent_->GetPlan(); 
-  mapfGraph_.AddAgentToJointSpace(agentGraph, 3, agent_->GetStartVertex(),
+  mapfGraph_.AddAgentToJointSpace(3, agent_->GetStartVertex(),
                                  agent_->GetGoalVertex());
+  cout << "Agent start/end vertices: " << agent_->GetStartVertex().pprint(true) << ", "
+                                       << agent_->GetGoalVertex().pprint(true, true);
 
   cout << "size individual graph:: " <<  agent_->GetLocalGraph().getNumVerticesX()
                                           * 
                                           agent_->GetLocalGraph().getNumVerticesY()
-                                      << endl;
+                                      << endl << endl;
 
 }
 
@@ -170,7 +173,10 @@ void testJointPlan(ros::NodeHandle& n) {
                                       << endl;
    mapfGraph_.MergeAgentGraphs();
 
-   cout << "size individual graph:: " <<  agent_->GetLocalGraph().getNumVerticesX()
+   
+
+
+   cout << "reminder size individual graph:: " <<  agent_->GetLocalGraph().getNumVerticesX()
                                           * 
                                           agent_->GetLocalGraph().getNumVerticesY()
                                       << endl;
@@ -237,9 +243,9 @@ int main_test_graph(int argc, char **argv) {
    */
   ros::Rate loop_rate(500);
   int count = 0;
-  //testGenGraph(n);
+  testGenGraph(n);
   //testMapf(n);
-  testJointPlan(n);
+  //testJointPlan(n);
 
   planning::Graph testGraph = agent_->GetLocalGraph();
 
@@ -358,7 +364,7 @@ int main_test_astar(int argc, char **argv) {
 
 
 int main_test_mapf(int argc, char **argv) {
-  id_t pid = getpid();
+  pid_t pid = getpid();
   std::stringstream ss;
   ss << "agent_" << pid;
   std::string node_name = ss.str();
@@ -395,7 +401,7 @@ int main_test_mapf(int argc, char **argv) {
   int count = 0;
   //testGenGraph(n);
   testAddAgents(n);
-  testJointPlan(n);
+  //testJointPlan(n);
 
   planning::Graph testGraph = agent_->GetLocalGraph();
 
@@ -421,6 +427,8 @@ int main_test_mapf(int argc, char **argv) {
       */
       //agent.publishTest(msg);
       agent_->PublishPlan(msg);
+
+
 
       //testVisualizeGraph(testGraph);
       //testVisualizePath(testGraph, agent_->GetPlan());

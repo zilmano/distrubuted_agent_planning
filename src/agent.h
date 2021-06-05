@@ -30,6 +30,25 @@ struct Params {
     //float obs_min_clearance;
 };
 
+static void ConvertPathMsgToGraphIndexList(const distributed_mapf::PathMsg& msg, 
+	                                      list<planning::GraphIndex>& plan) {
+	for (const auto& vertex: msg.path) {
+		plan.push_back(planning::GraphIndex((unsigned int)vertex.x_id,
+											(unsigned int)vertex.y_id,0));
+	}
+}
+
+static void ConvertGraphIndexListToPathMsg(const list<planning::GraphIndex>& plan,
+												 distributed_mapf::PathMsg& msg) {
+	for (const auto& graphIndex: plan) {
+		distributed_mapf::Vertex vertex;
+		vertex.x_id = graphIndex.x;
+		vertex.y_id = graphIndex.y;
+		msg.path.push_back(vertex);
+	}
+}
+
+
 class Agent {
 
 public:
@@ -62,7 +81,7 @@ public:
     }
 
 	list<planning::GraphIndex> GetPlan() const {
-    	return local_Astar_.getPlan();
+    	return my_plan_;
     }
 
     planning::GraphIndex GetStartVertex() const {
@@ -106,8 +125,37 @@ public:
     void Plan(const navigation::PoseSE2& start, 
     		  const navigation::PoseSE2& goal) {
 
-    	done_ = !(local_Astar_.generatePath(start, goal));
+    	done_ = local_Astar_.generatePath(start, goal);
+    	if (done_) {
+    		my_plan_ = local_Astar_.getPlan();
+		} else {
+			cout << "ERROR: could not find path from start to goal" << endl;
+		}
+
     };
+
+private:
+	bool DetectCollision(const list<planning::GraphIndex>& other_path) {
+        list<planning::GraphIndex>::const_iterator myit, otherit;
+        auto my_path = local_Astar_.getPlan();
+		for (myit = my_path.begin(),otherit = other_path.begin();
+			 myit != my_path.end() && otherit != other_path.begin();
+			 otherit++, myit++) {
+
+			if (*myit == *otherit) 
+				return true;
+			
+		}
+		return false;
+	}
+
+	void JointReplan(const list<planning::GraphIndex>& recieved_plan, 
+					 unsigned int other_agent_id);
+
+	void ChangePlan(const distributed_mapf::PathMsg& msg);
+
+	void networkModel();
+
 
     
 
@@ -120,12 +168,14 @@ private:
 	unsigned int agent_id_;
 	planning::Graph graph_;
 	planning::A_star local_Astar_;
-	std::shared_ptr<planning::MultiAgentAstar> mapf_Astar_;
+	planning::MultiAgentAstar mapf_Astar_;
+	planning::MultiAgentGraph mapf_graph_;
 	vector_map::VectorMap map_;
     
     Params params_;
 
     bool done_;
+    list<planning::GraphIndex> my_plan_;
 	//vector clock 
 };
-};
+}

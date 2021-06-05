@@ -107,10 +107,23 @@ struct GraphIndex {
            
     };
 
+    std::string pprint(bool str=false, bool endline=false) {
+        std::stringstream val;
+        val << "<" << x <<"," << y << ">";
+        if (endline) 
+            val << endl;
+        if (!str) 
+            cout << val.str();
+            
+        return val.str(); 
+    }
+
     int x;
     int y;
     int orient;
 };
+
+
 
 void static pprintState(const vector<GraphIndex>& jointState, bool endline) {
     std::stringstream val;
@@ -239,7 +252,9 @@ public:
     typedef list<NodePtr> Neighbors;
     typedef std::pair<GraphIndex, GraphIndex> StartGoalPair;
 
-    explicit MultiAgentGraph(): root_(nullptr) {};
+    explicit MultiAgentGraph(): root_(nullptr), 
+                                numOfAgents_(0), 
+                                agentGraph_(NULL) {};
 
     bool GetVertex(vector<GraphIndex> state, NodePtr& vertex) const {
         long int flatIndex = GetFlatIndexFromJointState(state);
@@ -281,11 +296,12 @@ public:
     void Init() {
         vertices_.clear();
         agentIndexToAgentId_.clear();
-        agentGraphs_.clear();
+        agentGraph_ = nullptr;
         agentStartsGoals_.clear();
         root_ = nullptr;
         jointStartState_.clear();
         jointGoalState_.clear();
+        numOfAgents_ = 0;
     };
 
     vector<GraphIndex>  GetStartState() const {
@@ -309,45 +325,52 @@ public:
 
     size_t GetGraphSize() const {
         return vertices_.size();
-    }   
+    };   
 
     long int GetFlatIndexFromJointState(NodePtr node) const {
         return GetFlatIndexFromJointState(node->jointState);
     };
 
+    unsigned int GetAgentIdFromIndex(size_t agentIndex) {
+        return agentIndexToAgentId_[agentIndex];
+    }; 
+
     unsigned int NumOfAgents() const {
-        return agentGraphs_.size();
+        return numOfAgents_;
     };
 
-
-    void AddAgentToJointSpace(const Graph& agentGraph, unsigned int agentId,                      GraphIndex startVertex, 
-                              GraphIndex endVertex) {
-        agentIndexToAgentId_.push_back(agentId);
-        agentGraphs_.push_back(agentGraph);
-        agentStartsGoals_.push_back(std::make_pair(startVertex, endVertex));
-
-    };
-    
-    
-    bool DetectCollisions() {
-        return false;
+    void AddAgentGraph(const Graph& agentGraph) {
+        agentGraph_ = std::make_shared<Graph>(agentGraph);
     }
 
+    void AddAgentToJointSpace(unsigned int agentId, GraphIndex startVertex, 
+                              GraphIndex endVertex) {
+        agentIndexToAgentId_.push_back(agentId);
+        agentStartsGoals_.push_back(std::make_pair(startVertex, endVertex));
+        numOfAgents_ += 1;
+
+    };
+    
     void MergeAgentGraphs() {
-        
+        cout << "DBG::Start Merge" << endl;
         // Init vertices vector (using the sizes of all stuffies)
         vertices_.clear();
 
 
-        size_t numAgents = agentGraphs_.size();
-
-        if (numAgents == 0) {
+        if (numOfAgents_ == 0) {
             cout << "No agents were added to MAPF graph. Aborting." << endl;
             return;
         }
+
+        if (!agentGraph_) {
+            cout << "No agent graph was added to MAPF graph. Aborting." << endl;
+            return;
+        }
        
+        cout << "DBG::Add jointStartGoal" << endl;
+        
         // Create Start State;
-        for (size_t i = 0; i < numAgents; ++i) {
+        for (size_t i = 0; i < numOfAgents_; ++i) {
             jointStartState_.push_back(agentStartsGoals_[i].first);
             jointGoalState_.push_back(agentStartsGoals_[i].second);
 
@@ -355,6 +378,8 @@ public:
         
         deque<vector<GraphIndex>> auxQueue;
         queue<NodePtr> nodeQueue;
+        
+        cout << "DBG::Add root node " << endl;
         
         root_ = AddNode(jointStartState_, nodeQueue);
         cout << "Set root " << root_->pprint() << endl;
@@ -414,9 +439,9 @@ private:
                      deque<vector<GraphIndex>>& auxQueue, 
                      queue<NodePtr>& nodeQueue) {
         //cout << "AddNeighbors::Level " << agentIndex << endl;
-        if (agentIndex == agentGraphs_.size()) {
+        if (agentIndex == numOfAgents_) {
             //reached last agent. Stop and add neigbors to the node list
-            if (auxQueue.front().size() != agentGraphs_.size()) {
+            if (auxQueue.front().size() != numOfAgents_) {
                 // Sanitiy check
                 cout << "Sanity check failed. Error in implemetation of " 
                      <<  "AddNeighbors recursion end condition" << endl;
@@ -444,15 +469,17 @@ private:
             cout << "Sanitiy check. Error in AddNeighbors auxQueue implementation." << endl;
             throw;
         }
-        Graph agentGraph = agentGraphs_[agentIndex]; 
+         
         GraphIndex agentVertex = currNode->jointState[agentIndex];
         while(stateSize == agentIndex) {
-            list<GraphIndex> neighbors = agentGraph.GetVertexNeighbors(agentVertex);
+            list<GraphIndex> neighbors = agentGraph_->GetVertexNeighbors(agentVertex);
             neighbors.push_back(agentVertex);
             for (auto& neighbor: neighbors) {
                 vector<GraphIndex> state =  auxQueue.front();
-                state.push_back(neighbor);
-                auxQueue.push_back(state);
+                if (!CheckCollision(state, neighbor)) {
+                    state.push_back(neighbor);
+                    auxQueue.push_back(state);
+                }
             }
             auxQueue.pop_front();
             stateSize = auxQueue.front().size();
@@ -462,17 +489,24 @@ private:
 
     };
         
-    //void AddEdge(std::size_t vertex,  std::size_t neighbor);
+    bool CheckCollision(vector<GraphIndex>& state_so_far,
+                        const GraphIndex& agent_index) const {
+        for (size_t i = 0; i < state_so_far.size(); i++) {
+            if(agent_index == state_so_far[i]) 
+                return true;
+        }
+        return false;
+    }
+
     //bool CheckNoCollisionVertex(const Node& node);
-    long int GetFlatIndexFromJointState(const vector<GraphIndex>& state) const
-    {
+    long int GetFlatIndexFromJointState(const vector<GraphIndex>& state) const {
         long int flatIndex = 0;
         int prevSize = 1;
         //cout << "GetFlatIndexFromJointState:: numAgents:" << agentGraphs_.size() << endl;
-        for (int i = agentGraphs_.size()-1; i >= 0; i--) {
+        for (int i = numOfAgents_-1; i >= 0; i--) {
             //cout << "GetFlatIndexFromJointState:: i: " << i << endl;
-            int sizeX = agentGraphs_[i].getNumVerticesX();
-            int sizeY = agentGraphs_[i].getNumVerticesY();
+            int sizeX = agentGraph_->getNumVerticesX();
+            int sizeY = agentGraph_->getNumVerticesY();
             flatIndex += (prevSize)*(state[i].y*sizeX + state[i].x);
             prevSize *= sizeY * sizeX;
         }
@@ -485,10 +519,11 @@ private:
 private:
     unordered_map<long int, NodePtr> vertices_;
     vector<unsigned int> agentIndexToAgentId_;
-    vector<Graph> agentGraphs_;
+    std::shared_ptr<Graph> agentGraph_;
     vector<StartGoalPair> agentStartsGoals_;
     
     NodePtr root_;
+    unsigned int numOfAgents_;
     vector<GraphIndex> jointStartState_;
     vector<GraphIndex> jointGoalState_;
 };
@@ -557,6 +592,8 @@ public:
         graph_ = graph; 
         speed_ = speed;
         time_step_ = time_step;
+        path_.clear();
+        goal_cost_ = 0;
     };
 
     bool GeneratePath(bool heuristic = true);
@@ -577,6 +614,10 @@ public:
         }
         return agentPath;
     }
+
+    unsigned int GetAgentIdFromIndex(size_t agentIndex) {
+        return graph_.GetAgentIdFromIndex(agentIndex);
+    } 
 
 private:
     //void findStartAndGoalVertex(const navigation::PoseSE2& start,
