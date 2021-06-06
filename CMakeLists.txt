@@ -142,7 +142,7 @@ add_library(utils_lib
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(agent src/agent.cc src/agent_main.cc)
-
+add_executable(monitor src/agent_temp.cc src/monitor.cc)
 
 
 ## Add cmake target dependencies of the library
