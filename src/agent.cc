@@ -2,15 +2,42 @@
 
 using namespace agent;
 
+//std::map <int, vector<planning::GraphIndex>>  all_paths;
+
+//std::vector <vector<distributed_mapf::PathMsg::_path_type>>  all_paths;
+std::vector<list<planning::GraphIndex>> all_paths;
+std::vector <int> agent_ids;
 
 void Agent::networkModel() {
 
 }
 
 void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
+
+	if (15 != (unsigned int) msg.sender_id) {
+
+		for (const auto& vertex: msg.path) {
+
+			unsigned int x_cord = vertex.x_id;
+			unsigned int y_cord = vertex.y_id;
+			std::cout<<x_cord<<" "<<y_cord<<"\n";
+
+
+		}
+                ROS_INFO("Hello!!!");
+        }
+
 	// OLEG TODO: move the following if's contect to networkModel function,
 	//            so that we can use the same network simulation for all topics.
 	if (agent_id_ != (unsigned int) msg.sender_id) {
+
+	
+
+//		all_paths.insert ( std::pair<int, int>(msg.sender_id, msg.path) );
+		list<planning::GraphIndex> recievedPlan_temp;
+		ConvertPathMsgToGraphIndexList(msg, recievedPlan_temp);
+		all_paths.push_back(recievedPlan_temp);
+//		agent_ids.push_back(msg.sender_id);
 		
 		cout << "Got msg" << endl;
 		// Drop the packet if the random number is not multiple of ten

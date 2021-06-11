@@ -144,7 +144,7 @@ add_library(utils_lib
 add_executable(agent src/agent.cc src/agent_main.cc)
 add_executable(test_agent src/agent.cc src/agent_test.cc)
 add_executable(second_agent src/agent_secondary.cc src/agent.cc)
-
+add_executable(monitor src/agent.cc src/monitor.cc)
 
 
 ## Add cmake target dependencies of the library
@@ -171,7 +171,7 @@ add_dependencies(second_agent distributed_mapf_generate_messages_cpp)
 target_link_libraries(agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(test_agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(second_agent ${catkin_LIBRARIES} utils_lib glog)
-
+target_link_libraries(monitor ${catkin_LIBRARIES} utils_lib glog)
 
 #############
 ## Testing ##
