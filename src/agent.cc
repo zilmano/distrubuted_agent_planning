@@ -1,18 +1,59 @@
 #include "agent.h"
-
+#include <bits/stdc++.h>
 using namespace agent;
-
 //std::map <int, vector<planning::GraphIndex>>  all_paths;
 
 //std::vector <vector<distributed_mapf::PathMsg::_path_type>>  all_paths;
 std::vector<list<planning::GraphIndex>> all_paths;
 std::vector <int> agent_ids;
+time_t start_time=-1;
+time_t end_time=-1;
 
 void Agent::networkModel() {
 
 }
 
+void Agent::check_collisions(){
+
+	for(unsigned int i = 0;i<all_paths.size();i++){
+		for(unsigned int j = 0;j<all_paths.size();j++){
+
+			if(i!=j){
+
+				if(DetectCollision_monitor(all_paths[i],all_paths[j])){
+
+
+					ROS_INFO("COLLISION IN PATHS!!!!!\n!!!!!\n\n!!!!!!!!!!\n\n!!!");
+				
+				}
+
+			}
+
+		}
+	}
+
+}
+
 void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
+
+	if (start_time==-1){
+	time(&start_time);
+	}
+
+
+	time(&end_time);
+
+	int time_taken = int(end_time - start_time);
+
+	if(time_taken%120!=0){
+
+		check_collisions();
+
+	}
+
+
+
+
 
 	if (15 != (unsigned int) msg.sender_id) {
 

@@ -122,6 +122,8 @@ public:
 
     void PlanMsgCallback(const distributed_mapf::PathMsg& msg);
 
+    void check_collisions();
+
     void Plan(const navigation::PoseSE2& start, 
     		  const navigation::PoseSE2& goal) {
 
@@ -135,7 +137,8 @@ public:
     };
 
 private:
-	bool DetectCollision(const list<planning::GraphIndex>& other_path) {
+	
+    	bool DetectCollision(const list<planning::GraphIndex>& other_path) {
         list<planning::GraphIndex>::const_iterator myit, otherit;
         auto my_path = local_Astar_.getPlan();
 		for (myit = my_path.begin(),otherit = other_path.begin();
@@ -148,6 +151,20 @@ private:
 		}
 		return false;
 	}
+
+	bool DetectCollision_monitor(const list<planning::GraphIndex>& other_path, const list<planning::GraphIndex>& my_path) {
+        list<planning::GraphIndex>::const_iterator myit, otherit;
+                for (myit = my_path.begin(),otherit = other_path.begin();
+                         myit != my_path.end() && otherit != other_path.begin();
+                         otherit++, myit++) {
+
+                        if (*myit == *otherit)
+                                return true;
+
+                }
+                return false;
+        }
+
 
 	void JointReplan(const list<planning::GraphIndex>& recieved_plan, 
 					 unsigned int other_agent_id);
