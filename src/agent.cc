@@ -45,7 +45,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 
 	int time_taken = int(end_time - start_time);
 
-	if(time_taken%120!=0){
+	if(time_taken%120==0){
 
 		check_collisions();
 
