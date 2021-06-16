@@ -122,7 +122,8 @@ public:
 
     void PlanMsgCallback(const distributed_mapf::PathMsg& msg);
 
-    void check_collisions();
+    void check_collisions(int sender_id);
+    void add_path(int sender_id, list<planning::GraphIndex> path_list);
 
     void Plan(const navigation::PoseSE2& start, 
     		  const navigation::PoseSE2& goal) {
