@@ -217,6 +217,8 @@ void test_plan_comm(int argc,char **argv) {
       //distributed_mapf::PathMsg msg;
       //msg.sender_id = (unsigned int)pid;
 
+      ros::spinOnce();
+
       distributed_mapf::PathMsg cmd_msg = makeNotifyMsg(pid);
       agent_->PublishPlan(cmd_msg);
       agent_->PublishRegister();
@@ -224,15 +226,13 @@ void test_plan_comm(int argc,char **argv) {
                                      // is a temporary solution to a corner case
                                      // where both agent had change of plans simultaniosly
                                      // and notifiy and command each other simulataniously.
-
+      cout << "Cleared Issued Commands." << endl;
 
       auto path = agent_->GetPlan(); 
       //testVisualizeGraph(testGraph);
       //testVisualizePath(testGraph, agent_->GetPlan());
       testVisualizePath(agentGraph, path, color);
       
-      ros::spinOnce();
-
       loop_rate.sleep();
       ++count;
   }

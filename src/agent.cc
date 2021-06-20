@@ -61,15 +61,24 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 	    	  		PublishPlan(reply_msg);
 	    	  		issued_command_to.insert(reply_msg.target_id);
 	    	  	}
-			} 
+			} else {
+				cout << "No collision detected. Carry on." << endl;
+			}
+
 		} else {
 			   // message B from A after B detected a collision and recalculated a joint plan
 			   // for both B and A
-			   if ( ! (issued_command_to.count(msg.sender_id)) 
-			   		|| agent_id_< msg.sender_id)  
+			   if (issued_command_to.count(msg.sender_id) == 0) {
+			   	cout << "Haven't Issued command to " << msg.sender_id << " So yielding " << endl;
 			   	ChangePlan(msg);
-
-			
+			   }
+			   else if ( agent_id_> msg.sender_id)  {
+			   	cout << "Issued command to " << msg.sender_id << " But yielding as my id is bigger" << endl;
+			   	ChangePlan(msg);
+			   } else {
+			   	cout << "Issued command to " << msg.sender_id << " But not yielding since my id is smaller" << endl;
+			   }
+	
 		}
 	}
 }

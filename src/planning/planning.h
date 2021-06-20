@@ -31,7 +31,7 @@ namespace vector_map {
 
 using std::vector;
 using std::list;
-//using Eigen::Vector2i;
+using Eigen::Vector2i;
 using std::queue;
 using std::deque;
 using std::unordered_map;
@@ -107,7 +107,7 @@ struct GraphIndex {
            
     };
 
-    std::string pprint(bool str=false, bool endline=false) {
+    std::string pprint(bool str=false, bool endline=false) const {
         std::stringstream val;
         val << "<" << x <<"," << y << ">";
         if (endline) 
@@ -153,7 +153,7 @@ public:
           int y_end, int num_of_orient, float margin_to_wall, const vector_map::VectorMap& map):
           grid_spacing_(grid_spacing), x_start_(x_start),x_end_(x_end),
           y_start_(y_start),y_end_(y_end),num_of_orient_(num_of_orient),
-          margin_to_wall_(margin_to_wall) {
+          margin_to_wall_(margin_to_wall), window_set_(false) {
         if (num_of_orient != 1 && num_of_orient != 4 && num_of_orient != 8) {
             cout << "ERROR: Graph::Graph -> In graph constructor, passed number of orientations should be 4, or 8. Others are not supported." << endl;
             throw;
@@ -167,8 +167,15 @@ public:
     //std::starlist<GraphIndex> GetVertexNeighbors(const navigation::PoseSE2& pose);
 
     GraphIndex GetClosestVertex(const navigation::PoseSE2& pose);
+    Eigen::Vector2f GetLocFromVertexIndex(const GraphIndex& vIndex) {
+        return GetLocFromVertexIndex(vIndex.x, vIndex.y);
+    };
     Eigen::Vector2f GetLocFromVertexIndex(int index_x, int index_y);
-    void AddWallToGraph(const geometry::line2f&  line){};
+    
+    void SetWindow(const GraphIndex& center, float size_x, float size_y);
+    bool IsVertexInWindow(const GraphIndex& vertex) const;
+    void UnsetWindow() { window_set_ = false; };
+    bool HasWindow() const { return window_set_; }; 
 
     int getNumVerticesX() const {
         return num_vertices_x_;
@@ -183,6 +190,14 @@ public:
 
     const Vertices& GetVertices() const {
         return vertices_;
+    }
+
+    GraphIndex GetWindowCenter() const {
+        return window_center_;
+    }
+
+    Vector2i GetWindowVertices() const {
+        return window_vertices_;
     }
 
     /*
@@ -214,6 +229,10 @@ private:
     Vertices vertices_;
     int num_vertices_x_;
     int num_vertices_y_;
+
+    bool window_set_;
+    Vector2i window_vertices_;
+    GraphIndex window_center_;
 };
 
 
@@ -298,6 +317,7 @@ public:
         agentIndexToAgentId_.clear();
         agentGraph_ = nullptr;
         agentStartsGoals_.clear();
+        agentOrigPlans_.clear();
         root_ = nullptr;
         jointStartState_.clear();
         jointGoalState_.clear();
@@ -335,6 +355,10 @@ public:
         return agentIndexToAgentId_[agentIndex];
     }; 
 
+    list<GraphIndex> GetAgentOrigPlan(size_t agentIndex) {
+        return agentOrigPlans_[agentIndex];
+    }
+
     unsigned int NumOfAgents() const {
         return numOfAgents_;
     };
@@ -343,16 +367,50 @@ public:
         agentGraph_ = std::make_shared<Graph>(agentGraph);
     }
 
-    void AddAgentToJointSpace(unsigned int agentId, GraphIndex startVertex, 
-                              GraphIndex endVertex) {
+    void SetWindow(const GraphIndex& center, float size_x, float size_y) {
+        if (!agentGraph_) {
+            cout << "ERROR: MultiAgent graph window set before agent graph was added." << " Do AddAgentGraph before SetWindow" << endl;
+            throw;
+        }
+        agentGraph_->SetWindow(center, size_x, size_y);
+        window_set_ = true;
+    }
+
+    bool HasWindow() const { return window_set_; }; 
+
+    void AddAgentToJointSpace(unsigned int agentId, const list<GraphIndex>& plan) {
+        if (!agentGraph_) {
+            cout << "No agent graph was added to MAPF graph. Aborting." << endl;
+            return;
+        }
+
         agentIndexToAgentId_.push_back(agentId);
+        
+        GraphIndex startVertex;
+        GraphIndex endVertex;
+        if (agentGraph_->HasWindow()) {
+            if (!GetStartEndInWindow(plan ,startVertex, endVertex)) {
+                cout << "Sanitiy check::AddAgentToJointSpace: path and window don't align for agent." << endl;
+                throw;
+            }
+            //cout << "StartInWin:" << startVertex.pprint(true) << " ";
+            cout << "Start/Goal loc for agent in window:";
+            debug::print_loc(agentGraph_->GetLocFromVertexIndex(startVertex),"", false); 
+            //cout << " EndInWin:"  << endVertex.pprint(true) << " ";
+            debug::print_loc(agentGraph_->GetLocFromVertexIndex(endVertex), "", true); 
+        
+        } else {  
+            startVertex = plan.front();
+            endVertex = plan.back();
+        }
         agentStartsGoals_.push_back(std::make_pair(startVertex, endVertex));
+        agentOrigPlans_.push_back(plan);
         numOfAgents_ += 1;
 
     };
-    
+
     void MergeAgentGraphs() {
-        cout << "DBG::Start Merge" << endl;
+        cout << "DBG::Start Merge graphs to joint space.." << endl;
         // Init vertices vector (using the sizes of all stuffies)
         vertices_.clear();
 
@@ -367,7 +425,7 @@ public:
             return;
         }
        
-        cout << "DBG::Add jointStartGoal" << endl;
+        //cout << "DBG::Add jointStartGoal" << endl;
         
         // Create Start State;
         for (size_t i = 0; i < numOfAgents_; ++i) {
@@ -379,11 +437,11 @@ public:
         deque<vector<GraphIndex>> auxQueue;
         queue<NodePtr> nodeQueue;
         
-        cout << "DBG::Add root node " << endl;
+        //cout << "DBG::Add root node " << endl;
         
         root_ = AddNode(jointStartState_, nodeQueue);
         cout << "Set root " << root_->pprint() << endl;
-        cout << "Set goal "; pprintState(jointGoalState_,true);
+        cout << "Set goal "; pprintState(jointGoalState_,false);
         
         // Start BFS until node queue is empty. Expand neigbors for each node,
         // create nodes for the, and add to the queue and to the curr node's
@@ -407,7 +465,7 @@ public:
             //    cout << neighbor->pprint() << ", "; 
             //}
             if (vertices_.size() > (prevVertexSize+50000)) {
-                cout << endl << "Graph current size: " << vertices_.size() << endl;
+                cout << "Graph current size: " << vertices_.size() << endl;
                 prevVertexSize += 50000;
             }
             //cout << endl << endl;
@@ -513,6 +571,34 @@ private:
         return flatIndex;
     };
 
+
+    bool GetStartEndInWindow(const list<GraphIndex>& plan, 
+                             GraphIndex& startVertex, GraphIndex& endVertex) {
+        bool in_window = false;
+        bool passed_center = false;
+        for (auto it = plan.cbegin(); it != plan.cend(); it++) {
+            if (!in_window) {
+                if (agentGraph_->IsVertexInWindow(*it)) {
+                    startVertex = *it;
+                    in_window = true;
+                } 
+            } else if (!passed_center) {
+                if (*it == agentGraph_->GetWindowCenter()) {
+                    passed_center = true;
+                }
+                else if(!agentGraph_->IsVertexInWindow(*it)) {
+                    in_window=false;
+                }
+            } else {
+                if(!agentGraph_->IsVertexInWindow(*it)) {
+                    endVertex = *(--it);
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
     //Debug 
 
 
@@ -521,11 +607,17 @@ private:
     vector<unsigned int> agentIndexToAgentId_;
     std::shared_ptr<Graph> agentGraph_;
     vector<StartGoalPair> agentStartsGoals_;
+    vector<list<GraphIndex>> agentOrigPlans_;
     
     NodePtr root_;
     unsigned int numOfAgents_;
     vector<GraphIndex> jointStartState_;
     vector<GraphIndex> jointGoalState_;
+
+    bool window_set_;
+    //GraphIndex window_center_;
+    //float window_size_x_;
+    //float window_size_y_;
 };
 
 
@@ -607,13 +699,42 @@ public:
         return graph_;
     }
 
-    list<GraphIndex> GetAgentPath(unsigned int agentIndex) {
-        list<GraphIndex> agentPath;
+    void GetAgentPath(list<GraphIndex>& agentPath, unsigned int agentIndex) {
+        agentPath.clear();
         for (const auto& vertex: path_) {
             agentPath.push_back(vertex[agentIndex]);
         }
+    }
+
+    list<GraphIndex> PlugAgentPath(unsigned int agentIndex) {
+        list<GraphIndex> agentPath = graph_.GetAgentOrigPlan(agentIndex);
+        PlugAgentPath(agentPath, agentIndex);
         return agentPath;
     }
+
+    void PlugAgentPath(list<GraphIndex>& origPlan, 
+                                   unsigned int agentIndex) {
+        if (!graph_.HasWindow()) {
+            origPlan.clear();
+            GetAgentPath(origPlan, agentIndex); 
+        } else {
+            list<GraphIndex> agentPath;
+            GetAgentPath(agentPath, agentIndex);
+            list<GraphIndex>::iterator window_start, window_end; 
+            for (auto it = origPlan.begin(); it != origPlan.end(); ++it) {
+                if (*it == agentPath.front()) {
+                    window_start = it;
+                } 
+                if (*it == agentPath.back()) {
+                    window_end = ++it;
+                    origPlan.erase(window_start, window_end);
+                    origPlan.insert(window_end, agentPath.begin(), agentPath.end());
+                    return;
+                } 
+            }
+            cout << "MapfAsterPlanner::ERROR: Could not plug window fix into the original path." << endl;
+        }
+    }    
 
     unsigned int GetAgentIdFromIndex(size_t agentIndex) {
         return graph_.GetAgentIdFromIndex(agentIndex);
