@@ -2,15 +2,16 @@
 #include <string>
 #include "std_msgs/String.h"
 #include <stdlib.h>
+#include <unordered_set>
 
 #include "distributed_mapf/Vertex.h"
 #include "distributed_mapf/PathMsg.h"
+#include "distributed_mapf/RegMsg.h"
+#include "distributed_mapf/GoalMsg.h"
 #include "amrl/vector_map/vector_map.h"
 #include "planning/planning.h"
+#include "defs.h"
 
-const std::string plan_topic = "plan_topic";
-//const std::string location_topic = "loc_topic";
-const std::string default_map = "GDC1";
 
 namespace agent {
 
@@ -20,6 +21,8 @@ struct Params {
     int plan_x_end;
     int plan_y_start;
     int plan_y_end;
+    float window_size_x;
+    float window_size_y;
     int plan_num_of_orient;
     float plan_margin_to_wall;
     float replan_dist;
@@ -53,10 +56,11 @@ class Agent {
 
 public:
 	Agent(ros::NodeHandle *n, Params params, unsigned int id): 
-		n_(n), params_(params), agent_id_(id), done_(false) {}
+		n_(n), params_(params), agent_id_(id), done_(false), ideal_(false) {}
 
     void InitPublishers() {
-    	plan_publish_ = n_->advertise<distributed_mapf::PathMsg>(plan_topic, 1000);
+    	plan_publish_ = n_->advertise<distributed_mapf::PathMsg>(defs::plan_topic, 1000);
+    	register_publish_ = n_->advertise<distributed_mapf::RegMsg>(defs::register_topic, 1000); 
     	test_publish_ = n_->advertise<std_msgs::String>("test", 1000);
     }
 
@@ -68,12 +72,34 @@ public:
     	test_publish_.publish(msg);
     }
 
+    void PublishRegister() {
+    	distributed_mapf::RegMsg msg;
+  		msg.sender_id = agent_id_;
+    	msg.sender_loc.loc_x = current_loc_.loc.x();
+    	msg.sender_loc.loc_y = current_loc_.loc.y();
+
+    	Eigen::Vector2f goal_loc = graph_.GetLocFromVertexIndex(
+    		my_plan_.back().x,
+    		my_plan_.back().y); 
+    	msg.sender_goal.loc_x = goal_loc.x();
+    	msg.sender_goal.loc_y = goal_loc.y();
+    	register_publish_.publish(msg);
+    }
+
     void SetAgentId(unsigned int id) {
     	agent_id_ = id;
     }
 
     void SetParams(const Params &p) {
     	params_ = p;
+    }
+
+    void SetIdeal() {
+    	ideal_ = true;
+    }
+
+    void ClearIssuedCommands() {
+    	issued_command_to.clear();
     }
 
     planning::Graph GetLocalGraph() const {
@@ -90,11 +116,15 @@ public:
 
 	planning::GraphIndex GetGoalVertex() const {
     	return local_Astar_.GetGoalIndex();
-    }    
+    } 
+
+    planning::GraphIndex GetCollisionVertex() const {
+    	return collision_vertex_;
+    }
 
     void LoadMap(std::string map_file = "") {
     	if (map_file.size() == 0) {
-    		map_file = default_map;
+    		map_file = defs::default_map;
     	}
 
     	std::string full_map_file;
@@ -122,9 +152,11 @@ public:
 
     void PlanMsgCallback(const distributed_mapf::PathMsg& msg);
 
+    void GoalMsgCallback(const distributed_mapf::GoalMsg& msg);
+
     void Plan(const navigation::PoseSE2& start, 
     		  const navigation::PoseSE2& goal) {
-
+        current_loc_ = start;
     	done_ = local_Astar_.generatePath(start, goal);
     	if (done_) {
     		my_plan_ = local_Astar_.getPlan();
@@ -134,19 +166,45 @@ public:
 
     };
 
-private:
-	bool DetectCollision(const list<planning::GraphIndex>& other_path) {
-        list<planning::GraphIndex>::const_iterator myit, otherit;
-        auto my_path = local_Astar_.getPlan();
-		for (myit = my_path.begin(),otherit = other_path.begin();
-			 myit != my_path.end() && otherit != other_path.begin();
+
+	bool DetectCollision(const list<planning::GraphIndex>& other_plan) {
+        list<planning::GraphIndex>::const_iterator myit, otherit, 
+        										   prev_myit, prev_otherit;
+        prev_myit = my_plan_.end();
+
+		for (myit = my_plan_.begin(),otherit = other_plan.begin();
+			 myit != my_plan_.end() && otherit != other_plan.end();
 			 otherit++, myit++) {
 
-			if (*myit == *otherit) 
+			cout << " [" << myit->pprint(true) << ", " << otherit->pprint(true) << "]"; 
+			if (*myit == *otherit) { 
+			    cout << endl;
+			    collision_vertex_ = *myit;
 				return true;
-			
+
+			}
+
+			if (prev_myit != my_plan_.end() && 
+				*myit == *prev_otherit && *prev_myit == *otherit) {
+				collision_vertex_ = *myit;
+				cout << endl;
+				return true;
+			}
+
+			prev_myit = myit; 
+			prev_otherit = otherit;
 		}
+		cout << endl << endl;
+
 		return false;
+	}
+
+private:
+
+	navigation::PoseSE2 IndexToLoc(planning::GraphIndex index){
+		navigation::PoseSE2 loc;
+		loc.loc = graph_.GetLocFromVertexIndex(index.x, index.y);
+		return loc; 
 	}
 
 	void JointReplan(const list<planning::GraphIndex>& recieved_plan, 
@@ -162,7 +220,7 @@ private:
 private:
 	ros::NodeHandle* n_;
 	ros::Publisher plan_publish_;
-	ros::Subscriber plan_subscribe_;
+	ros::Publisher register_publish_;
 	ros::Publisher test_publish_;
 
 	unsigned int agent_id_;
@@ -173,9 +231,20 @@ private:
 	vector_map::VectorMap map_;
     
     Params params_;
-
+    
     bool done_;
+    bool ideal_; // ideal communication conditions.
     list<planning::GraphIndex> my_plan_;
-	//vector clock 
+    navigation::PoseSE2 current_loc_;
+    planning::GraphIndex collision_vertex_;
+
+	//vector clock goes here?
+
+	//state
+	// TODO: Change this state to a better one, once we stamp the command 
+	//   	 message back to the notify that trigered it, that the best way to keep on track.
+	//       may kind of like a vector clock.
+	std::unordered_set<unsigned int> issued_command_to; 
 };
+
 }

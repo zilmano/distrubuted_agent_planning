@@ -27,7 +27,7 @@ void planCallback(const distributed_mapf::PathMsg& msg) {
 
 
 void initComm(ros::NodeHandle& n) {
-  plan_sub_ = n.subscribe(plan_topic, 1000, planCallback);
+  plan_sub_ = n.subscribe(defs::plan_topic, 1000, planCallback);
   agent_->InitPublishers();
 }
 

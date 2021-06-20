@@ -57,6 +57,8 @@ add_message_files(
     FILES
     Vertex.msg
     PathMsg.msg
+    RegMsg.msg
+    GoalMsg.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -144,6 +146,7 @@ add_library(utils_lib
 add_executable(agent src/agent.cc src/agent_main.cc)
 add_executable(test_agent src/agent.cc src/agent_test.cc)
 add_executable(second_agent src/agent_secondary.cc src/agent.cc)
+add_executable(clientsim src/clientsim_main.cc)
 
 
 
@@ -154,6 +157,7 @@ add_executable(second_agent src/agent_secondary.cc src/agent.cc)
 add_dependencies(agent distributed_mapf_generate_messages_cpp)
 add_dependencies(test_agent distributed_mapf_generate_messages_cpp)
 add_dependencies(second_agent distributed_mapf_generate_messages_cpp)
+add_dependencies(clientsim distributed_mapf_generate_messages_cpp)
 
 
 
@@ -171,6 +175,7 @@ add_dependencies(second_agent distributed_mapf_generate_messages_cpp)
 target_link_libraries(agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(test_agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(second_agent ${catkin_LIBRARIES} utils_lib glog)
+target_link_libraries(clientsim ${catkin_LIBRARIES} utils_lib glog)
 
 
 #############

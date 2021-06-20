@@ -176,7 +176,17 @@ namespace planning {
             cout << "ERROR: planning::Graph::GetVertexNeighbors -> Vertex Index is out of bounds in the graph" << endl;
             throw;
         }
-        return vertices_[index.x][index.y][index.orient];
+        if (!HasWindow()) {
+          return vertices_[index.x][index.y][index.orient];
+        } else {
+          list<GraphIndex> neighbors;
+          for (auto &neighbor : vertices_[index.x][index.y][index.orient]) {
+            if (IsVertexInWindow(neighbor)) {
+                neighbors.push_back(neighbor);
+            }
+          }
+          return neighbors;
+        }
     }
 
     Eigen::Vector2f Graph::GetLocFromVertexIndex(int index_x,
@@ -189,6 +199,27 @@ namespace planning {
             throw;
         }
         return Eigen::Vector2f((index_x+1)*grid_spacing_+x_start_,(index_y+1)*grid_spacing_+y_start_);
+    }
+
+    void Graph::SetWindow(const GraphIndex& center, float size_x, float size_y) {
+        
+        window_set_ = true;
+        window_center_ = center;
+        window_vertices_ = Vector2i((int)((size_x/2)/grid_spacing_),
+                                        (int)((size_x/2)/grid_spacing_));
+    }
+
+    bool Graph::IsVertexInWindow(const GraphIndex& vertex) const {
+
+        if ( vertex.x >= (window_center_.x - window_vertices_.x()) &&
+             vertex.x <= (window_center_.x + window_vertices_.x()) &&
+             vertex.y >= (window_center_.y - window_vertices_.y()) &&
+             vertex.y <= (window_center_.y + window_vertices_.y())) {
+            return true;
+        }       
+
+        return false;
+
     }
 
     float Graph::NormalizeAngle(float angle) {
@@ -387,11 +418,11 @@ namespace planning {
         MultiAgentGraph::NodePtr start = graph_.GetStartNode();
         MultiAgentGraph::NodePtr goal  = graph_.GetGoalNode();
 
-        cout << "\n\nStarting generatePath..." << endl;
+        cout << "Starting generatePath..." << endl;
         cout << "Start/Goal states:" << endl;
         pprintState(start->jointState, false);
         pprintState(goal->jointState, true);
-        cout << endl;
+        //cout << endl;
 
         priority_queue<element, vector<element>, std::greater<element>> frontier;
         unordered_map<long int, MultiAgentGraph::NodePtr> came_from;
@@ -412,9 +443,9 @@ namespace planning {
             frontier.pop();
             //costart_.jointState"Start\t X id:" << start_.x << " Start\t Y id:" << start_.y << std::endl;
             // cout << "Goal\t X id:" << goal_.x << " Goal\t Y id:" << goal_.y << std::endl;
-            cout << endl << "---------------------------------------------" << endl;
-            cout << "Current State: "; pprintState(current->jointState, true);
-            cout << "Cost_so_far size: " << cost_so_far.size() << std::endl;
+            //cout << endl << "---------------------------------------------" << endl;
+            //cout << "Current State: "; pprintState(current->jointState, true);
+            //cout << "Cost_so_far size: " << cost_so_far.size() << std::endl;
             
             if(*current == *goal){
                 break;
@@ -428,7 +459,7 @@ namespace planning {
             expanded.insert(graph_.GetFlatIndexFromJointState(current));
 
             for(auto &neighbor : current->neighbors){
-                cout << "Neighbor: "; pprintState(neighbor->jointState, true);
+                //cout << "Neighbor: "; pprintState(neighbor->jointState, true);
                 double new_cost = 
                     cost_so_far[graph_.GetFlatIndexFromJointState(current)] + 
                     calcCost(current->jointState, neighbor->jointState);
@@ -441,7 +472,7 @@ namespace planning {
                     || new_cost < cost_so_far[graph_.GetFlatIndexFromJointState(neighbor)]){
                     cost_so_far[graph_.GetFlatIndexFromJointState(neighbor)] = new_cost;
                     came_from[graph_.GetFlatIndexFromJointState(neighbor)] = current;
-                    cout << "New cost found" << std::endl;
+                    //cout << "New cost found" << std::endl;
                     frontier.emplace(new_cost, neighbor);
 
                 }
@@ -449,9 +480,10 @@ namespace planning {
         }
         
         goal_cost_ = cost_so_far[graph_.GetFlatIndexFromJointState(goal)];
-        cout << "A* start Done." << std::endl;
+        cout << "A* start Done." << endl << endl;
 
         MultiAgentGraph::NodePtr current = goal;
+        path_.push_back(goal->jointState);
         while(current != start){
             path_.push_front(came_from[graph_.GetFlatIndexFromJointState(current)]->jointState);
             current = came_from[graph_.GetFlatIndexFromJointState(current)];

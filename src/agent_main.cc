@@ -8,6 +8,7 @@
 #include "distributed_mapf/Vertex.h"
 #include "distributed_mapf/PathMsg.h"
 #include "agent.h"  
+#include "defs.h"
 
 
 using std::list;
@@ -18,6 +19,7 @@ agent::Agent* agent_;
 ros::Publisher visualization_pub_;
 amrl_msgs::VisualizationMsg map_viz_msg_;
 ros::Subscriber plan_sub_;
+ros::Subscriber goal_sub_;
 
 
 
@@ -26,9 +28,16 @@ void planCallback(const distributed_mapf::PathMsg& msg) {
     agent_->PlanMsgCallback(msg);
 }
 
+void goalCallback(const distributed_mapf::GoalMsg& msg) {
+    cout << "Getting plan callback." << endl;
+    agent_->GoalMsgCallback(msg);
+}
+
 
 void initComm(ros::NodeHandle& n) {
-  plan_sub_ = n.subscribe(plan_topic, 1000, &planCallback);
+  plan_sub_ = n.subscribe(defs::plan_topic, 1000, &planCallback);
+  goal_sub_ = n.subscribe(defs::new_goal_topic, 1000, &goalCallback);
+  
   agent_->InitPublishers();
 }
 
@@ -118,17 +127,46 @@ void test_plan_comm(int argc,char **argv) {
 
   navigation::PoseSE2 start;
   navigation::PoseSE2 goal;
-  cout << "argc:" << argc << endl; 
+  uint32_t color = 0x000FF;
+
+  /* example available colors:
+  https://www.rapidtables.com/web/color/RGB_Color.html
+  0x990000 Red
+  0xFF6666
+  0xFF9999
+  0x999900 Yellow
+  0xFFFF00
+  0x4C9900 Green
+  0xB2FF66
+  0x006600
+  0x00FF00
+  0x00FFFF Blue
+  0x006666
+  0x000066
+  0x004C99
+  0x0000FF
+  0x6666FF Purple
+  0x7F00FF 
+  0xCC00CC
+  0xFF99FF
+  0xFF007F
+  0x606060 Gray
+  0x808080
+  0xC0C0C0
+  */
+  
   if (argc < 5) {
     start = navigation::PoseSE2(-14, 9, 0);
     goal = navigation::PoseSE2(0, 18, 0);
   } else {
-    if (argc != 5) {
+    if (argc != 5 && argc != 6) {
       cout << "ERROR: need to provide start and goal" << endl;
       throw;
     }
     start = navigation::PoseSE2(std::stoi(argv[1]), std::stoi(argv[2]), 0);
     goal =  navigation::PoseSE2(std::stoi(argv[3]), std::stoi(argv[4]), 0);
+    if (argc == 6)
+      color = std::stoi(argv[5],0,16); 
   }
 
   debug::print_loc(start.loc,"Start loc:", false);
@@ -142,18 +180,21 @@ void test_plan_comm(int argc,char **argv) {
   ros::init(argc, argv, node_name);
   ros::NodeHandle n;
   agent::Params params;
-  params.plan_grid_pitch = 1;
-  params.plan_x_start = -15;
-  params.plan_x_end = 3;
-  params.plan_y_start = 7;
-  params.plan_y_end = 21;
-  params.plan_num_of_orient = 1;
-  params.plan_margin_to_wall = 0.3;
+  params.plan_grid_pitch = defs::plan_grid_pitch;
+  params.plan_x_start = defs::plan_x_start;
+  params.plan_x_end = defs::plan_x_end;
+  params.plan_y_start = defs::plan_y_start;
+  params.plan_y_end = defs::plan_y_end;
+  params.window_size_x = defs::window_size_x;
+  params.window_size_y = defs::window_size_y;
+  params.plan_num_of_orient = defs::plan_num_of_orient;
+  params.plan_margin_to_wall = defs::plan_margin_to_wall;
 
   agent_ = new agent::Agent(&n, params, pid);
+  agent_->SetIdeal();
   initComm(n);
   initVisualizer(n);
-  ros::Rate loop_rate(0.5);
+  ros::Rate loop_rate(0.1);
   int count = 0;
 
   agent_->LoadMap();
@@ -178,11 +219,17 @@ void test_plan_comm(int argc,char **argv) {
 
       distributed_mapf::PathMsg cmd_msg = makeNotifyMsg(pid);
       agent_->PublishPlan(cmd_msg);
+      agent_->PublishRegister();
+      agent_->ClearIssuedCommands(); // This, using the 'issued_command_to' member
+                                     // is a temporary solution to a corner case
+                                     // where both agent had change of plans simultaniosly
+                                     // and notifiy and command each other simulataniously.
+
 
       auto path = agent_->GetPlan(); 
       //testVisualizeGraph(testGraph);
       //testVisualizePath(testGraph, agent_->GetPlan());
-      testVisualizePath(agentGraph, path);
+      testVisualizePath(agentGraph, path, color);
       
       ros::spinOnce();
 
@@ -196,71 +243,5 @@ int main(int argc, char **argv)
 {
   
   test_plan_comm(argc, argv);
-  return 0; 
-
-  pid_t pid = getpid();
-  std::stringstream ss;
-  ss << "agent_" << pid;
-  std::string node_name = ss.str();
-
-  ros::init(argc, argv, node_name);
-  ros::NodeHandle n;
-
-  agent::Params params;
-  params.plan_grid_pitch = 1;
-  params.plan_x_start = -50;
-  params.plan_x_end = 50;
-  params.plan_y_start = -30;
-  params.plan_y_end = 30;
-  params.plan_num_of_orient = 1;
-  params.plan_margin_to_wall = 0.1;
-    
-
-
-  agent_ = new agent::Agent(&n, params, pid);
-  initComm(n);
   
-  
-  /**
-   * A count of how many messages we have sent. This is used to create
-   * a unique string for each message.
-   */
-  ros::Rate loop_rate(10);
-  int count = 0;
-  testGenGraph(n);
-  planning::Graph testGraph = agent_->GetLocalGraph();
-
-  while (ros::ok()) {
-      /**
-      * This is a message object. You stuff it with data, and then publish it.
-      */
-      
-      /*std_msgs::String msg;
-      std::stringstream ss;
-      ss << "hello world " << count;
-      msg.data = ss.str();
-
-      ROS_INFO("%s", msg.data.c_str());*/
-      distributed_mapf::PathMsg msg;
-      msg.sender_id = (unsigned int)pid;
-
-      /**
-      * The publish() function is how you send messages. The parameter
-      * is the message object. The type of this object must agree with the type
-      * given as a template parameter to the advertise<>() call, as was done
-      * in the constructor above.
-      */
-      //agent.publishTest(msg);
-      agent_->PublishPlan(msg);
-
-      //testVisualizeGraph(testGraph);
-      testVisualizePath(testGraph, agent_->GetPlan());
-
-      ros::spinOnce();
-
-      loop_rate.sleep();
-      ++count;
-  }
-  
-  return 0;
 }
