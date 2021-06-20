@@ -151,9 +151,7 @@ public:
     }
 
     void PlanMsgCallback(const distributed_mapf::PathMsg& msg);
-
     void GoalMsgCallback(const distributed_mapf::GoalMsg& msg);
-
     void Plan(const navigation::PoseSE2& start, 
     		  const navigation::PoseSE2& goal) {
         current_loc_ = start;
@@ -169,7 +167,7 @@ public:
 
 	bool DetectCollision(const list<planning::GraphIndex>& other_plan) {
         list<planning::GraphIndex>::const_iterator myit, otherit, 
-        										   prev_myit, prev_otherit;
+        			    prev_myit, prev_otherit;
         prev_myit = my_plan_.end();
 
 		for (myit = my_plan_.begin(),otherit = other_plan.begin();
@@ -206,7 +204,6 @@ private:
 		loc.loc = graph_.GetLocFromVertexIndex(index.x, index.y);
 		return loc; 
 	}
-
 	void JointReplan(const list<planning::GraphIndex>& recieved_plan, 
 					 unsigned int other_agent_id);
 

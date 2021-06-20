@@ -1,16 +1,131 @@
 #include "agent.h"
-
+#include <bits/stdc++.h>
 using namespace agent;
+//std::map <int, vector<planning::GraphIndex>>  all_paths;
 
+//std::vector <vector<distributed_mapf::PathMsg::_path_type>>  all_paths;
+std::vector<list<planning::GraphIndex>> all_paths;
+std::vector <int> agent_ids;
+time_t start_time=-1;
+time_t end_time=-1;
 
 void Agent::networkModel() {
 
 }
 
+
+void Agent::add_path(int sender_id, list<planning::GraphIndex> path_list){
+
+	//find index from agent_ids array
+	
+	int agent_index = -1;
+
+	for(unsigned int i=0;i<agent_ids.size();i++){
+		if(agent_ids[i]==sender_id)
+			agent_index=i;
+	
+	}
+
+	//Add path corresponding to agent_id
+
+	if(agent_index==-1){
+		agent_ids.push_back(sender_id);
+		all_paths.push_back(path_list);
+	
+	}else{
+		all_paths[agent_index]=path_list;
+	
+	}
+
+}
+
+void Agent::check_collisions(int sender_id){
+
+//	ROS_INFO("\nDISPLAYING ALL PATHS and size of all_paths is %d\n",all_paths.size());
+//	ROS_INFO("\nSender ID is %d and agent ID is %d\n",sender_id,agent_id_);
+
+	for(unsigned int i = 0;i<all_paths.size();i++){
+
+//		ROS_INFO("\nPrinting PATH number %d\n",i);
+
+		distributed_mapf::PathMsg msg_i;
+		ConvertGraphIndexListToPathMsg(all_paths[i], msg_i);
+
+
+		int step_i = 0;
+
+		for (const auto& vertex_i: msg_i.path) {
+
+                        unsigned int x_cord = vertex_i.x_id;
+                        unsigned int y_cord = vertex_i.y_id;
+			int step_j = 0;
+              //          std::cout<<x_cord<<" "<<y_cord<<"\";
+
+
+			for(unsigned int j = 0;j<all_paths.size();j++){
+
+				if(i!=j){
+					distributed_mapf::PathMsg msg_j;
+					ConvertGraphIndexListToPathMsg(all_paths[j], msg_j);
+
+					for (const auto& vertex_j: msg_j.path) {
+
+						if(vertex_j.x_id==vertex_i.x_id && vertex_j.y_id==vertex_i.y_id && step_i==step_j){
+
+							ROS_INFO("COLLISION IN PATHS!!!!!\n");
+							return;
+
+						}
+					}
+				}
+
+			step_j++;
+			}
+
+		
+		step_i++;
+               }
+
+
+	}
+
+	ROS_INFO("\nexiting check collision\n");
+}
+
 void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
+
+	if (start_time==-1){
+	time(&start_time);
+	}
+
+
+	time(&end_time);
+
+	int time_taken = int(end_time - start_time);
+
+	if(time_taken%120==0){
+
+		check_collisions((int) msg.sender_id);
+
+	}
+
+	check_collisions((int) msg.sender_id);
+
+
+
+
+
 	// OLEG TODO: move the following if's contect to networkModel function,
 	//            so that we can use the same network simulation for all topics.
+	
+	list<planning::GraphIndex> recievedPlan_temp;
+	ConvertPathMsgToGraphIndexList(msg, recievedPlan_temp);
+	add_path(msg.sender_id, recievedPlan_temp);
+
 	if (agent_id_ != (unsigned int) msg.sender_id) {
+
+	
+
 		
 		cout << "Got msg" << endl;
 		// Drop the packet if the random number is not multiple of ten
