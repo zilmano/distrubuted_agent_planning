@@ -59,6 +59,7 @@ add_message_files(
     PathMsg.msg
     RegMsg.msg
     GoalMsg.msg
+    ClockMsg.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -147,7 +148,9 @@ add_executable(agent src/agent.cc src/agent_main.cc)
 add_executable(test_agent src/agent.cc src/agent_test.cc)
 add_executable(second_agent src/agent_secondary.cc src/agent.cc)
 add_executable(clientsim src/clientsim_main.cc)
-add_executable(monitor src/agent.cc src/monitor.cc)
+add_executable(monitor src/monitor_main.cc)
+add_executable(central_clock src/central_clock_main.cc)
+
 
 
 ## Add cmake target dependencies of the library
@@ -158,6 +161,8 @@ add_dependencies(agent distributed_mapf_generate_messages_cpp)
 add_dependencies(test_agent distributed_mapf_generate_messages_cpp)
 add_dependencies(second_agent distributed_mapf_generate_messages_cpp)
 add_dependencies(clientsim distributed_mapf_generate_messages_cpp)
+add_dependencies(monitor distributed_mapf_generate_messages_cpp)
+add_dependencies(central_clock distributed_mapf_generate_messages_cpp)
 
 
 
@@ -177,6 +182,8 @@ target_link_libraries(test_agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(second_agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(clientsim ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(monitor ${catkin_LIBRARIES} utils_lib glog)
+target_link_libraries(central_clock ${catkin_LIBRARIES} utils_lib glog)
+
 
 #############
 ## Testing ##
