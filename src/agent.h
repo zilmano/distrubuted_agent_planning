@@ -8,6 +8,7 @@
 #include "distributed_mapf/PathMsg.h"
 #include "distributed_mapf/RegMsg.h"
 #include "distributed_mapf/GoalMsg.h"
+#include "distributed_mapf/ClockMsg.h"
 #include "amrl/vector_map/vector_map.h"
 #include "planning/planning.h"
 #include "defs.h"
@@ -55,8 +56,9 @@ static void ConvertGraphIndexListToPathMsg(const list<planning::GraphIndex>& pla
 class Agent {
 
 public:
-	Agent(ros::NodeHandle *n, Params params, unsigned int id): 
-		n_(n), params_(params), agent_id_(id), done_(false), ideal_(false) {}
+	Agent(ros::NodeHandle *n, Params params, unsigned int id, uint32_t color=0x00FF00): 
+		  n_(n), params_(params), agent_id_(id), done_(false), ideal_(false), 
+		  clock_cnt_(0), color_(color), own_vector_clk_(0) {}
 
     void InitPublishers() {
     	plan_publish_ = n_->advertise<distributed_mapf::PathMsg>(defs::plan_topic, 1000);
@@ -75,6 +77,7 @@ public:
     void PublishRegister() {
     	distributed_mapf::RegMsg msg;
   		msg.sender_id = agent_id_;
+    	msg.sender_color = color_;
     	msg.sender_loc.loc_x = current_loc_.loc.x();
     	msg.sender_loc.loc_y = current_loc_.loc.y();
 
@@ -83,7 +86,8 @@ public:
     		my_plan_.back().y); 
     	msg.sender_goal.loc_x = goal_loc.x();
     	msg.sender_goal.loc_y = goal_loc.y();
-    	register_publish_.publish(msg);
+
+        register_publish_.publish(msg);
     }
 
     void SetAgentId(unsigned int id) {
@@ -122,6 +126,18 @@ public:
     	return collision_vertex_;
     }
 
+    unsigned long GetClockCnt() const {
+    	return clock_cnt_;
+    }
+
+    unsigned long GetOwnVectorClk() const {
+    	return own_vector_clk_;
+    }
+
+    uint32_t GetColor() const {
+    	return color_;
+    }
+
     void LoadMap(std::string map_file = "") {
     	if (map_file.size() == 0) {
     		map_file = defs::default_map;
@@ -151,13 +167,20 @@ public:
     }
 
     void PlanMsgCallback(const distributed_mapf::PathMsg& msg);
+
     void GoalMsgCallback(const distributed_mapf::GoalMsg& msg);
+
+    void ClockMsgCallback(const distributed_mapf::ClockMsg& clkmsg) {
+    	clock_cnt_ = clkmsg.clock;
+    }
+
     void Plan(const navigation::PoseSE2& start, 
     		  const navigation::PoseSE2& goal) {
         current_loc_ = start;
     	done_ = local_Astar_.generatePath(start, goal);
     	if (done_) {
     		my_plan_ = local_Astar_.getPlan();
+    		own_vector_clk_++;
 		} else {
 			cout << "ERROR: could not find path from start to goal" << endl;
 		}
@@ -167,9 +190,8 @@ public:
 
 	bool DetectCollision(const list<planning::GraphIndex>& other_plan) {
         list<planning::GraphIndex>::const_iterator myit, otherit, 
-        			    prev_myit, prev_otherit;
+        										   prev_myit, prev_otherit;
         prev_myit = my_plan_.end();
-
 		for (myit = my_plan_.begin(),otherit = other_plan.begin();
 			 myit != my_plan_.end() && otherit != other_plan.end();
 			 otherit++, myit++) {
@@ -179,7 +201,6 @@ public:
 			    cout << endl;
 			    collision_vertex_ = *myit;
 				return true;
-
 			}
 
 			if (prev_myit != my_plan_.end() && 
@@ -188,12 +209,10 @@ public:
 				cout << endl;
 				return true;
 			}
-
 			prev_myit = myit; 
 			prev_otherit = otherit;
 		}
 		cout << endl << endl;
-
 		return false;
 	}
 
@@ -204,6 +223,7 @@ private:
 		loc.loc = graph_.GetLocFromVertexIndex(index.x, index.y);
 		return loc; 
 	}
+
 	void JointReplan(const list<planning::GraphIndex>& recieved_plan, 
 					 unsigned int other_agent_id);
 
@@ -235,13 +255,20 @@ private:
     navigation::PoseSE2 current_loc_;
     planning::GraphIndex collision_vertex_;
 
-	//vector clock goes here?
+	
 
 	//state
 	// TODO: Change this state to a better one, once we stamp the command 
 	//   	 message back to the notify that trigered it, that the best way to keep on track.
 	//       may kind of like a vector clock.
 	std::unordered_set<unsigned int> issued_command_to; 
+
+	// "Physical" clock
+	unsigned long clock_cnt_;
+	uint32_t color_;
+
+	// vector clock;
+	unsigned long own_vector_clk_;
 };
 
 }

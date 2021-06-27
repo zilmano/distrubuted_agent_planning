@@ -17,14 +17,14 @@ namespace defs {
     const static float plan_margin_to_wall = 0.0001;
 
     // rates and clock freq
-    const static agent_spic_freq = 1; // 1 sec; The delays should be relative to move rate
-    const static central_clock_freq = 0.2 // 5 sec - we move every 5 sec.;
+    const static float agent_spin_freq = 1; // 1 sec; The delays should be relative to move rate
+    const static float central_clock_freq = 0.2; // 5 sec - we move every 5 sec.;
     
     // names
     const static std::string plan_topic = "plan_topic";
 	const static std::string new_goal_topic = "new_goal_topic";
 	const static std::string register_topic = "register_topic";
-    const static std::string clock_topic = "clock_topic"
+    const static std::string clock_topic = "clock_topic";
 	const static std::string default_map = "GDC1";
 
 }

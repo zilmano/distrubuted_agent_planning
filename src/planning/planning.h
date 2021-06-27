@@ -734,7 +734,23 @@ public:
             }
             cout << "MapfAsterPlanner::ERROR: Could not plug window fix into the original path." << endl;
         }
-    }    
+    }  
+
+    bool HasPlanChanged(unsigned int agentIndex, const list<GraphIndex>& newPlan) {
+        const list<GraphIndex>& origPlan = graph_.GetAgentOrigPlan(agentIndex);
+        auto orig_it = origPlan.cbegin();
+        auto new_it = newPlan.cbegin();
+        while(true) {
+            if (new_it == newPlan.cend() && orig_it == origPlan.cend())
+                return false;
+            else if (new_it == newPlan.cend() || orig_it == origPlan.cend())
+                return true;
+            else if (*new_it != *orig_it) 
+                return true;
+            orig_it++;
+            new_it++;
+        }
+    }  
 
     unsigned int GetAgentIdFromIndex(size_t agentIndex) {
         return graph_.GetAgentIdFromIndex(agentIndex);

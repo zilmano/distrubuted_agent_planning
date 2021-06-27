@@ -11,6 +11,7 @@
 #include "defs.h"
 
 
+
 using std::list;
 
 //Agent/Node State
@@ -20,8 +21,7 @@ ros::Publisher visualization_pub_;
 amrl_msgs::VisualizationMsg map_viz_msg_;
 ros::Subscriber plan_sub_;
 ros::Subscriber goal_sub_;
-
-
+ros::Subscriber clock_sub_;
 
 void planCallback(const distributed_mapf::PathMsg& msg) {
     cout << "Getting plan callback." << endl;
@@ -33,11 +33,14 @@ void goalCallback(const distributed_mapf::GoalMsg& msg) {
     agent_->GoalMsgCallback(msg);
 }
 
+void clockCallback(const distributed_mapf::ClockMsg& clkmsg) {
+    agent_->ClockMsgCallback(clkmsg);
+}
 
 void initComm(ros::NodeHandle& n) {
-  plan_sub_ = n.subscribe(defs::plan_topic, 1000, &planCallback);
-  goal_sub_ = n.subscribe(defs::new_goal_topic, 1000, &goalCallback);
-  
+  plan_sub_  = n.subscribe(defs::plan_topic, 1000, planCallback);
+  goal_sub_  = n.subscribe(defs::new_goal_topic, 1000, goalCallback);
+  clock_sub_ = n.subscribe(defs::clock_topic, 1000, clockCallback);
   agent_->InitPublishers();
 }
 
@@ -117,6 +120,8 @@ distributed_mapf::PathMsg makeNotifyMsg(pid_t pid) {
   cmd_msg.sender_id = (unsigned int)pid;
   cmd_msg.target_id = -1; 
   cmd_msg.set_new_plan = false;
+  cmd_msg.clock = agent_->GetClockCnt();
+  cmd_msg.agent_vector_clk = agent_->GetOwnVectorClk();
   agent::ConvertGraphIndexListToPathMsg(agent_->GetPlan(), cmd_msg);
   return cmd_msg;
 }
@@ -190,11 +195,11 @@ void test_plan_comm(int argc,char **argv) {
   params.plan_num_of_orient = defs::plan_num_of_orient;
   params.plan_margin_to_wall = defs::plan_margin_to_wall;
 
-  agent_ = new agent::Agent(&n, params, pid);
+  agent_ = new agent::Agent(&n, params, pid, color);
   agent_->SetIdeal();
   initComm(n);
   initVisualizer(n);
-  ros::Rate loop_rate(0.1);
+  ros::Rate loop_rate(0.5);
   int count = 0;
 
   agent_->LoadMap();
@@ -202,7 +207,8 @@ void test_plan_comm(int argc,char **argv) {
   
   agent_->Plan(start, goal);
   planning::Graph agentGraph = agent_->GetLocalGraph();
-  
+  agent_->PublishRegister();
+  loop_rate.sleep();
   while (ros::ok()) {
       /**
       * This is a message object. You stuff it with data, and then publish it.
@@ -231,7 +237,7 @@ void test_plan_comm(int argc,char **argv) {
       auto path = agent_->GetPlan(); 
       //testVisualizeGraph(testGraph);
       //testVisualizePath(testGraph, agent_->GetPlan());
-      testVisualizePath(agentGraph, path, color);
+      //testVisualizePath(agentGraph, path, color);
       
       loop_rate.sleep();
       ++count;

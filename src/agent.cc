@@ -13,120 +13,29 @@ void Agent::networkModel() {
 
 }
 
-
-void Agent::add_path(int sender_id, list<planning::GraphIndex> path_list){
-
-	//find index from agent_ids array
-	
-	int agent_index = -1;
-
-	for(unsigned int i=0;i<agent_ids.size();i++){
-		if(agent_ids[i]==sender_id)
-			agent_index=i;
-	
-	}
-
-	//Add path corresponding to agent_id
-
-	if(agent_index==-1){
-		agent_ids.push_back(sender_id);
-		all_paths.push_back(path_list);
-	
-	}else{
-		all_paths[agent_index]=path_list;
-	
-	}
-
-}
-
-void Agent::check_collisions(int sender_id){
-
-//	ROS_INFO("\nDISPLAYING ALL PATHS and size of all_paths is %d\n",all_paths.size());
-//	ROS_INFO("\nSender ID is %d and agent ID is %d\n",sender_id,agent_id_);
-
-	for(unsigned int i = 0;i<all_paths.size();i++){
-
-//		ROS_INFO("\nPrinting PATH number %d\n",i);
-
-		distributed_mapf::PathMsg msg_i;
-		ConvertGraphIndexListToPathMsg(all_paths[i], msg_i);
-
-
-		int step_i = 0;
-
-		for (const auto& vertex_i: msg_i.path) {
-
-                        unsigned int x_cord = vertex_i.x_id;
-                        unsigned int y_cord = vertex_i.y_id;
-			int step_j = 0;
-              //          std::cout<<x_cord<<" "<<y_cord<<"\";
-
-
-			for(unsigned int j = 0;j<all_paths.size();j++){
-
-				if(i!=j){
-					distributed_mapf::PathMsg msg_j;
-					ConvertGraphIndexListToPathMsg(all_paths[j], msg_j);
-
-					for (const auto& vertex_j: msg_j.path) {
-
-						if(vertex_j.x_id==vertex_i.x_id && vertex_j.y_id==vertex_i.y_id && step_i==step_j){
-
-							ROS_INFO("COLLISION IN PATHS!!!!!\n");
-							return;
-
-						}
-					}
-				}
-
-			step_j++;
-			}
-
-		
-		step_i++;
-               }
-
-
-	}
-
-	ROS_INFO("\nexiting check collision\n");
-}
-
 void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 
-	if (start_time==-1){
+	/*if (start_time==-1){
 	time(&start_time);
 	}
 
-
 	time(&end_time);
-
 	int time_taken = int(end_time - start_time);
-
 	if(time_taken%120==0){
-
 		check_collisions((int) msg.sender_id);
 
 	}
-
-	check_collisions((int) msg.sender_id);
-
-
-
-
+	check_collisions((int) msg.sender_id);*/
 
 	// OLEG TODO: move the following if's contect to networkModel function,
 	//            so that we can use the same network simulation for all topics.
 	
-	list<planning::GraphIndex> recievedPlan_temp;
+	/*list<planning::GraphIndex> recievedPlan_temp;
 	ConvertPathMsgToGraphIndexList(msg, recievedPlan_temp);
 	add_path(msg.sender_id, recievedPlan_temp);
+    */
 
 	if (agent_id_ != (unsigned int) msg.sender_id) {
-
-	
-
-		
 		cout << "Got msg" << endl;
 		// Drop the packet if the random number is not multiple of ten
 
@@ -156,25 +65,31 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 				cout << "Agent::" << agent_id_ << ":: "<< "Collision detected. Starting joint plan" << endl;
 				JointReplan(recievedPlan, msg.sender_id);
 			
-
 				for (unsigned int i = 0; i < mapf_Astar_.NumOfAgents(); i++) {
 					if (mapf_Astar_.GetAgentIdFromIndex(i) == agent_id_) {
 						mapf_Astar_.PlugAgentPath(my_plan_, i);
+		 				if (mapf_Astar_.HasPlanChanged(i, my_plan_));
+		 					own_vector_clk_++;
+		 				// TODO: notify other agents that plan has changed.
 		 				continue;
 		 			}
 
-					distributed_mapf::PathMsg reply_msg;
-		      		reply_msg.sender_id = agent_id_;
-	    	  		reply_msg.target_id = mapf_Astar_.GetAgentIdFromIndex(i); 
-	    	  		reply_msg.set_new_plan = true;
-	    	  		
-	    	  		list<planning::GraphIndex> agentPath; 
+					list<planning::GraphIndex> agentPath; 
 	    	  		//TODO: changed to PlugAgentPath? Or do it joint replan.
 	    	  		agentPath = mapf_Astar_.PlugAgentPath(i);
-	    	  		ConvertGraphIndexListToPathMsg(agentPath, reply_msg);
-	    	  		cout << "Agent::" << agent_id_ << ":: Send new plan to other agent" << endl; 
-	    	  		PublishPlan(reply_msg);
-	    	  		issued_command_to.insert(reply_msg.target_id);
+	    	  		if (mapf_Astar_.HasPlanChanged(i, agentPath)) {
+	    	  			distributed_mapf::PathMsg reply_msg;
+			      		reply_msg.sender_id = agent_id_;
+		    	  		reply_msg.target_id = mapf_Astar_.GetAgentIdFromIndex(i); 
+		    	  		reply_msg.set_new_plan = true;
+		    	  		reply_msg.clock = clock_cnt_;
+		    	  		reply_msg.agent_vector_clk = own_vector_clk_;
+	    	  			ConvertGraphIndexListToPathMsg(agentPath, reply_msg);
+
+	    	  			cout << "Agent::" << agent_id_ << ":: Send new plan to other agent" << endl; 
+	    	  			PublishPlan(reply_msg);
+	    	  			issued_command_to.insert(reply_msg.target_id);
+	    	  		}
 	    	  	}
 			} else {
 				cout << "No collision detected. Carry on." << endl;
@@ -185,11 +100,14 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 			   // for both B and A
 			   if (issued_command_to.count(msg.sender_id) == 0) {
 			   	cout << "Haven't Issued command to " << msg.sender_id << " So yielding " << endl;
+			   	own_vector_clk_++;
 			   	ChangePlan(msg);
 			   }
 			   else if ( agent_id_> msg.sender_id)  {
 			   	cout << "Issued command to " << msg.sender_id << " But yielding as my id is bigger" << endl;
+			   	own_vector_clk_++;
 			   	ChangePlan(msg);
+
 			   } else {
 			   	cout << "Issued command to " << msg.sender_id << " But not yielding since my id is smaller" << endl;
 			   }
@@ -197,7 +115,6 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 		}
 	}
 }
-
 
 void Agent::GoalMsgCallback(const distributed_mapf::GoalMsg& msg) {
 	if (agent_id_ == (unsigned int) msg.target_id) {
@@ -217,7 +134,6 @@ void Agent::ChangePlan(const distributed_mapf::PathMsg& msg) {
 	ConvertPathMsgToGraphIndexList(msg, new_plan);
 	my_plan_ = new_plan;
 }
-
 
 void Agent::JointReplan(const list<planning::GraphIndex>& recieved_plan, unsigned int other_agent_id) {
 	cout << "Agent::" << agent_id_ << ":: Starting Joint Replan..." << endl;
