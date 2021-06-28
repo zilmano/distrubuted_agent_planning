@@ -126,8 +126,6 @@ distributed_mapf::PathMsg makeNotifyMsg(pid_t pid) {
   return cmd_msg;
 }
 
-
-
 void test_plan_comm(int argc,char **argv) {
 
   navigation::PoseSE2 start;

@@ -41,13 +41,13 @@ public:
     }
 
 	void UpdateLocations() {
-		cout << "Updating location of agents. Inc iterators." << endl;
+		//cout << "Updating location of agents. Inc iterators." << endl;
 		size_t index = 0;
     	for (auto &loc_it: all_locs_) {
     		if (std::next(loc_it,1) != all_paths_[index].end()) {
-    			cout << "prev loc " << loc_it->pprint(true,true) ;
+    			//cout << "prev loc " << loc_it->pprint(true,true) ;
     			loc_it++;
-    			cout << "incremented loc " << loc_it->pprint(true,true) ;
+    			//cout << "incremented loc " << loc_it->pprint(true,true) ;
     		}
     		index++; 
     	}
@@ -71,7 +71,8 @@ public:
 	}
 
 	void ClockMsgCallback(const distributed_mapf::ClockMsg& clkmsg) {
-		cout << "Got clock msg " << clkmsg.clock << endl;
+		cout << "Got clock msg " << clkmsg.clock 
+			 << "Total collisions: " << collision_num_<< endl;
 		UpdateLocations();
 		clock_cnt_++;
 		if (clock_cnt_ != clkmsg.clock) {
@@ -79,12 +80,18 @@ public:
 			cout << "Clokc sync error for monitor." << endl;
 			throw;
 		}
+		//print locations:
+		for (int i = 0; i < all_locs_.size(); ++i) {
+			all_locs_[i]->pprint(false,false);
+			cout << ", ";
+		}
+		cout << endl;
 		CheckCollision();
 		Visualize();
 	}
 
 	void RegisterMsgCallback(const distributed_mapf::RegMsg& msg) {
-		cout << " Register agent " << msg.sender_id << endl;
+		//cout << " Register agent " << msg.sender_id << endl;
 		if (agent_colors_.count(msg.sender_id) > 0)
 			return;
 		agent_colors_[msg.sender_id] = msg.sender_color;
@@ -125,7 +132,8 @@ public:
 	void CheckCollision() {
 		for (int i = 0; i < all_locs_.size(); ++i) {
 			for (int j = i+1; j < all_locs_.size(); ++j) {
-				if (all_locs_[i] == all_locs_[j]) {
+				if (*all_locs_[i] == *all_locs_[j]) {
+					cout << "Collision_detected." << endl;
 					collision_num_++;
 				}
 			}
@@ -141,23 +149,23 @@ public:
 	}
 
 	void VisualizeLoc() {
-		cout << "adding loc viz " << endl;
+		//cout << "adding loc viz " << endl;
 		for (auto &it: agent_colors_) {
 			unsigned int agent_id = it.first;
 			if (agent_id_to_index_.count(agent_id) == 0)
 				continue;
 			
 			uint32_t agent_color = it.second;
-			cout << "agent id:" << agent_id << endl;
-			cout << "agent color:" << agent_color << endl;
+			//cout << "agent id:" << agent_id << endl;
+			//cout << "agent color:" << agent_color << endl;
 			size_t agent_index = agent_id_to_index_[agent_id];
 			GraphIndex agent_vertex = *(all_locs_[agent_index]);
-			agent_vertex.pprint(false,true);
+			//agent_vertex.pprint(false,true);
 			Eigen::Vector2f agent_loc = graph_.GetLocFromVertexIndex(
 													agent_vertex.x, agent_vertex.y); 
 			visualization::DrawCross(agent_loc, 0.6, agent_color, viz_msg_);
 		}
-		cout << "Done. " << endl;
+		//cout << "Done. " << endl;
 	}
 
 	void VisualizePlans() {
@@ -221,7 +229,6 @@ public:
 
 	void LoadMap() {
     	std::string map_file = defs::default_map;
-    	
     	std::string full_map_file;
     	if (map_file.find('.') == std::string::npos) {
        		full_map_file = "maps/" + map_file + "/" + map_file + ".vectormap.txt";
@@ -229,6 +236,7 @@ public:
        		full_map_file = map_file;
     	}
     	
+    	cout << "Loading map...";
     	vector_map::VectorMap map;
     	map.Load(full_map_file);
     	graph_ = planning::Graph(
@@ -239,14 +247,17 @@ public:
 		     defs::plan_y_end,
 		     defs::plan_num_of_orient,
 		     defs::plan_margin_to_wall, map);
+    	
+    	cout << "Done." << endl;
     }
 private: 
 	void alignLocWithClockDiff(unsigned long agent_clock, size_t agent_index) {
 		unsigned long time_delta = clock_cnt_ - agent_clock;
 		if (time_delta < 0) {
-            cout << "agent_clock is ahead of monitor clock!" << endl;
+            cout << "ERROR: agent_clock is ahead of monitor clock!" << endl;
+            throw;
         }
-        cout << "timedelta " << time_delta << "incrementing loc " 
+        cout << "--> Timedelta " << time_delta << "incrementing loc " 
         	 << time_delta << "times" << endl;
         for (int i = 0; i < time_delta; i++) {
             if (std::next(all_locs_[agent_index],1) == all_paths_[agent_index].end()) 

@@ -63,8 +63,9 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 			cout << "Agent::" << agent_id_ << ":: Working on detecting a collision..." << endl;
 			if (DetectCollision(recievedPlan)) {
 				cout << "Agent::" << agent_id_ << ":: "<< "Collision detected. Starting joint plan" << endl;
+				cout << "Agent::" << agent_id_ << "Collision point:" << collision_vertex_.pprint(true,true);
 				JointReplan(recievedPlan, msg.sender_id);
-			
+			    
 				for (unsigned int i = 0; i < mapf_Astar_.NumOfAgents(); i++) {
 					if (mapf_Astar_.GetAgentIdFromIndex(i) == agent_id_) {
 						mapf_Astar_.PlugAgentPath(my_plan_, i);
@@ -95,7 +96,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 				cout << "No collision detected. Carry on." << endl;
 			}
 
-		} else {
+		} else if (agent_id_ == msg.target_id){
 			   // message B from A after B detected a collision and recalculated a joint plan
 			   // for both B and A
 			   if (issued_command_to.count(msg.sender_id) == 0) {
@@ -119,12 +120,12 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 void Agent::GoalMsgCallback(const distributed_mapf::GoalMsg& msg) {
 	if (agent_id_ == (unsigned int) msg.target_id) {
 		cout << "Got new goal from client.." << endl;
-
-
 		navigation::PoseSE2 goal(msg.vertex.loc_x,
 								  msg.vertex.loc_y, 0);
 		if (local_Astar_.generatePath(current_loc_, goal));
 			my_plan_ = local_Astar_.getPlan();
+		// TODO: Add issuing a PublishPlan call to communicate 
+		// the new plan to everyone else
 	}
 }
 
@@ -149,7 +150,7 @@ void Agent::JointReplan(const list<planning::GraphIndex>& recieved_plan, unsigne
     mapf_graph_.AddAgentToJointSpace(agent_id_, my_plan_);
     mapf_graph_.AddAgentToJointSpace(other_agent_id, recieved_plan);
     mapf_graph_.MergeAgentGraphs();
-
+    cout << "Done merge joint graph." << endl;
     mapf_Astar_ = planning::MultiAgentAstar(mapf_graph_, 1, 0.5);
     mapf_Astar_.GeneratePath();
 }

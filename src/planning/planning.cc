@@ -210,16 +210,13 @@ namespace planning {
     }
 
     bool Graph::IsVertexInWindow(const GraphIndex& vertex) const {
-
         if ( vertex.x >= (window_center_.x - window_vertices_.x()) &&
              vertex.x <= (window_center_.x + window_vertices_.x()) &&
              vertex.y >= (window_center_.y - window_vertices_.y()) &&
              vertex.y <= (window_center_.y + window_vertices_.y())) {
             return true;
         }       
-
         return false;
-
     }
 
     float Graph::NormalizeAngle(float angle) {
@@ -236,7 +233,8 @@ namespace planning {
      */
 
 
-    bool A_star::generatePath(const navigation::PoseSE2& start, const navigation::PoseSE2& goal, const bool& heuristic){
+    bool A_star::generatePath(const navigation::PoseSE2& start, 
+                              const navigation::PoseSE2& goal, const bool& heuristic){
 
         //cout << "\n\nStarting generatePath..." << endl;
         //       debug::print_loc(start.loc," start loc", false);
@@ -285,7 +283,8 @@ namespace planning {
                 if (heuristic)
                     new_cost += calcHeuristic(neighbor);
                 //cout << "Neighbor cost:" << new_cost << " Current Cost:" << cost_so_far[current] << std::endl;
-                if(cost_so_far.find(neighbor) == cost_so_far.end() || new_cost < cost_so_far[neighbor]){
+                if(cost_so_far.find(neighbor) == cost_so_far.end() 
+                     || new_cost < cost_so_far[neighbor]) {
                     cost_so_far[neighbor] = new_cost;
                     frontier.emplace(new_cost, neighbor);
                     came_from[neighbor] = current;
@@ -413,7 +412,6 @@ namespace planning {
 
     bool MultiAgentAstar::GeneratePath(bool heuristic){
 
-        
         //findStartAndGoalVertex(start, goal);
         MultiAgentGraph::NodePtr start = graph_.GetStartNode();
         MultiAgentGraph::NodePtr goal  = graph_.GetGoalNode();

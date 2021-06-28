@@ -18,7 +18,7 @@ namespace defs {
 
     // rates and clock freq
     const static float agent_spin_freq = 1; // 1 sec; The delays should be relative to move rate
-    const static float central_clock_freq = 0.2; // 5 sec - we move every 5 sec.;
+    const static float central_clock_freq = 0.5; // 5 sec - we move every 5 sec.;
     
     // names
     const static std::string plan_topic = "plan_topic";

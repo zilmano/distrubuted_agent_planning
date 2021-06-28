@@ -124,6 +124,12 @@ struct GraphIndex {
 };
 
 
+void static PrintPlan(const list<GraphIndex>& plan) {
+    for (auto p_it = plan.begin(); p_it != plan.end(); ++p_it) {
+        cout << p_it->pprint(true); 
+    }
+    cout << endl;
+};
 
 void static pprintState(const vector<GraphIndex>& jointState, bool endline) {
     std::stringstream val;
@@ -388,6 +394,7 @@ public:
         
         GraphIndex startVertex;
         GraphIndex endVertex;
+        cout << "For plan: "; PrintPlan(plan); 
         if (agentGraph_->HasWindow()) {
             if (!GetStartEndInWindow(plan ,startVertex, endVertex)) {
                 cout << "Sanitiy check::AddAgentToJointSpace: path and window don't align for agent." << endl;
@@ -576,7 +583,16 @@ private:
                              GraphIndex& startVertex, GraphIndex& endVertex) {
         bool in_window = false;
         bool passed_center = false;
-        for (auto it = plan.cbegin(); it != plan.cend(); it++) {
+        
+        auto window_center   = agentGraph_->GetWindowCenter();
+        auto window_vertices = agentGraph_->GetWindowVertices();
+        cout << "Window dims --  x1:" << window_center.x - window_vertices.x() 
+             << " x2:" << window_center.x + window_vertices.x()
+             << " y1:" << window_center.y - window_vertices.y()
+             << " y2:" << window_center.y + window_vertices.y() << endl;
+    
+        list<GraphIndex>::const_iterator it;
+        for (it = plan.cbegin(); it != plan.cend(); it++) {
             if (!in_window) {
                 if (agentGraph_->IsVertexInWindow(*it)) {
                     startVertex = *it;
@@ -595,6 +611,10 @@ private:
                     return true;
                 }
             }
+        }
+        if (in_window) {
+            endVertex = *(--it);
+            return true;
         }
         return false;
     };
@@ -623,7 +643,7 @@ private:
 
 class A_star{
 public:
-    typedef std::pair<double, planning::GraphIndex> element;
+    typedef std::pair<double, GraphIndex> element;
 
 public:
     A_star():start_(GraphIndex(0,0,0)), goal_(GraphIndex(0,0,0)) {};
