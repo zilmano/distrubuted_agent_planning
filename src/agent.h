@@ -3,6 +3,7 @@
 #include "std_msgs/String.h"
 #include <stdlib.h>
 #include <unordered_set>
+#include <iterator>
 
 #include "distributed_mapf/Vertex.h"
 #include "distributed_mapf/PathMsg.h"
@@ -192,10 +193,9 @@ public:
         list<planning::GraphIndex>::const_iterator myit, otherit, 
         										   prev_myit, prev_otherit;
         prev_myit = my_plan_.end();
-		for (myit = my_plan_.begin(),otherit = other_plan.begin();
-			 myit != my_plan_.end() && otherit != other_plan.end();
-			 otherit++, myit++) {
-
+        myit      = my_plan_.begin();
+        otherit   = other_plan.begin();
+		do {
 			cout << " [" << myit->pprint(true) << ", " << otherit->pprint(true) << "]"; 
 			if (*myit == *otherit) { 
 			    cout << endl;
@@ -211,7 +211,12 @@ public:
 			}
 			prev_myit = myit; 
 			prev_otherit = otherit;
-		}
+			if (std::next(myit,1) != my_plan_.end())
+				myit++;
+			if (next(otherit, 1) != other_plan.end())
+				otherit++;
+		} while (std::next(myit,1) != my_plan_.end() || 
+			     next(otherit, 1) != other_plan.end());
 		cout << endl << endl;
 		return false;
 	}
