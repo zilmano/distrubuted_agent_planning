@@ -35,6 +35,21 @@ int main(int argc, char **argv) {
 	params.plan_y_end = defs::plan_y_end;
 	params.goal_change_freq = 5;
 	params.goal_change_prob = 0.3;
+
+	if(params.plan_x_start<0){
+		params.offset_x = -1 * (params.plan_x_start);
+	}else{
+		params.offset_x = 0;
+	
+	}
+
+	if(params.plan_y_start<0){
+                params.offset_y = -1 * (params.plan_y_start);
+        }else{
+                params.offset_y = 0;
+
+        }
+
 	
 	clientsim_ = new ClientSim(&n, params);
 	initComm(n);

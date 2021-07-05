@@ -23,6 +23,8 @@ namespace simulator {
     	int plan_y_end;
     	int goal_change_freq; // avg number of steps to try and change for
     	float goal_change_prob;
+	float offset_x;
+	float offset_y;
 
     	//float w_fpl;
     	//float w_clr;
@@ -37,13 +39,13 @@ namespace simulator {
             gen_.seed(time(0));
 			
     		x_dist_ = std::uniform_int_distribution<unsigned int>(
-    			params_.plan_x_start, 
-    			params_.plan_x_end
+    			(params_.plan_x_start + params.offset_x), 
+    			(params_.plan_x_end + params.offset_x)
     		);
     		
     		y_dist_ = std::uniform_int_distribution<unsigned int>(
-    			params_.plan_y_start, 
-   				params_.plan_y_end
+    			(params_.plan_y_start + params.offset_y), 
+   				(params_.plan_y_end + params.offset_y)
    			);
 
    			bernoulli_ = std::bernoulli_distribution(params.goal_change_prob);
@@ -61,8 +63,8 @@ namespace simulator {
 			distributed_mapf::Vertex goal_vertex; 
 			distributed_mapf::GoalMsg new_goal;
 
-			goal_vertex.loc_x = x_dist_(gen_);
-			goal_vertex.loc_y = y_dist_(gen_); 
+			goal_vertex.loc_x = x_dist_(gen_) - params_.offset_x;
+			goal_vertex.loc_y = y_dist_(gen_) - params_.offset_y; 
 
 			size_t agent_index = agent_rand_gen_(gen_);
 			//cout << agent_index << endl;
