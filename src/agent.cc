@@ -134,10 +134,12 @@ void Agent::GoalMsgCallback(const distributed_mapf::GoalMsg& msg) {
 			reply_msg.sender_id = agent_id_;
 			reply_msg.target_id = (-1); // TODO: Set appropriate target ID
 			reply_msg.set_new_plan = true;
-			reply_msg.agent_vector_clk = own_vector_clk_;
+			reply_msg.agent_vector_clk = own_vector_clk_+1; // Is this coorect?
+			cout<<"\nVector clock for newly published plan is "<<own_vector_clk_<<endl;
 			ConvertGraphIndexListToPathMsg(my_plan_, reply_msg);
 			PublishPlan(reply_msg);
-			cout<<"goal published"<<endl;
+
+			cout<<"GOAL PUBLISHED!!!!!"<<endl;
 			issued_command_to.insert(reply_msg.target_id);
 		}
 		// TODO: Add issuing a PublishPlan call to communicate 

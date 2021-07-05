@@ -54,6 +54,8 @@ public:
 	}
 
 	void PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
+
+		cout << "\nPlanMsgCallback called "<<endl;
 		if (clock_cnt_ == 0) {
 			cout << "Clock 0, not started yet." << endl;
 			//Not started yet.
