@@ -29,7 +29,7 @@ int main(int argc, char **argv)
   loop_rate.sleep();
   distributed_mapf::ClockMsg clock_msg;
   while (ros::ok()) {
-    cout << "Clock count:" << clock_count << endl;
+    //cout << "Clock count:" << clock_count << endl;
     clock_msg.clock = clock_count;
     clock_pub.publish(clock_msg);
     clock_count++;

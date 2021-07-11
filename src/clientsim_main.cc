@@ -19,7 +19,7 @@ void registerCallback(const distributed_mapf::RegMsg& msg) {
 }
 
 void initComm(ros::NodeHandle& n) {
-  register_sub_ = n.subscribe(defs::register_topic, 1, &registerCallback);
+  register_sub_ = n.subscribe(defs::register_topic, 1000, &registerCallback);
   clientsim_->InitPublishers();
 }
 
@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
 	params.plan_y_start = defs::plan_y_start;;
 	params.plan_y_end = defs::plan_y_end;
 	params.goal_change_freq = 5;
-	params.goal_change_prob = 0.3;
+	params.goal_change_prob = 0.6;
 
 	if(params.plan_x_start<0){
 		params.offset_x = -1 * (params.plan_x_start);

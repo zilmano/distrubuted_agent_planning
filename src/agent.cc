@@ -120,30 +120,31 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 void Agent::GoalMsgCallback(const distributed_mapf::GoalMsg& msg) {
 	if (agent_id_ == (unsigned int) msg.target_id) {
 		cout << "Got new goal from client.." << endl;
-		cout << "x and y corrdinates of new goal are x: "<<msg.vertex.loc_x<<" y: "<<msg.vertex.loc_y<<endl;
+		cout << "x and y corrdinates of new goal are x: "<< msg.vertex.loc_x<<" y: "<<msg.vertex.loc_y<<endl;
 
 //		navigation::PoseSE2 goal(15,9, 0);  // Debugging with this goal
 
-
-		navigation::PoseSE2 goal(msg.vertex.loc_x,
-								  msg.vertex.loc_y, 0);
-		if (local_Astar_.generatePath(current_loc_, goal)){
-			cout<<"new goal about to be published"<<endl;
-			my_plan_ = local_Astar_.getPlan();
-			distributed_mapf::PathMsg reply_msg;
-			reply_msg.sender_id = agent_id_;
-			reply_msg.target_id = (-1); // TODO: Set appropriate target ID
-			reply_msg.set_new_plan = true;
-			reply_msg.agent_vector_clk = own_vector_clk_+1; // Is this coorect?
+		navigation::PoseSE2 goal_pose(msg.vertex.loc_x, msg.vertex.loc_y, 0);
+		Eigen::Vector2f start_loc = graph_.GetLocFromVertexIndex(
+    												current_loc_->x,
+    												current_loc_->y); 
+		navigation::PoseSE2 start_pose(start_loc.x(), start_loc.y(), 0);
+		if (Plan(start_pose, goal_pose)) {
+			cout<<"Plan of new goal about to be published!"<<endl;
+			distributed_mapf::PathMsg plan_msg;
+			plan_msg.sender_id = agent_id_;
+			plan_msg.target_id = (-1); // TODO: Set appropriate target ID
+			plan_msg.set_new_plan = true;
+			plan_msg.clock = clock_cnt_;
+			plan_msg.agent_vector_clk = own_vector_clk_; // Is this coorect?
 			cout<<"\nVector clock for newly published plan is "<<own_vector_clk_<<endl;
-			ConvertGraphIndexListToPathMsg(my_plan_, reply_msg);
-			PublishPlan(reply_msg);
-
-			cout<<"GOAL PUBLISHED!!!!!"<<endl;
-			issued_command_to.insert(reply_msg.target_id);
+			ConvertGraphIndexListToPathMsg(my_plan_, plan_msg);
+			PublishPlan(plan_msg);
+			cout<<"NEW GOAL PLAN PUBLISHED!!!!!"<<endl;
+			issued_command_to.insert(plan_msg.target_id);
+		} else {
+			cout << "Could not find a valid path to the new goal. Continuing with the old plan.\n" << endl;
 		}
-		// TODO: Add issuing a PublishPlan call to communicate 
-		// the new plan to everyone else
 	}
 }
 

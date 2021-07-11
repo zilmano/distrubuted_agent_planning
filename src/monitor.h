@@ -24,7 +24,7 @@ using std::string;
 namespace monitor {
 
 class Monitor {
-typedef list<GraphIndex>::const_iterator LocItr;
+typedef list<GraphIndex>::iterator LocItr;
 public:
 	explicit Monitor(ros::NodeHandle *n): n_(n) ,   collision_num_(0), clock_cnt_(0) {
 		viz_pub_ =
@@ -47,7 +47,8 @@ public:
     		if (std::next(loc_it,1) != all_paths_[index].end()) {
     			//cout << "prev loc " << loc_it->pprint(true,true) ;
     			loc_it++;
-    			//cout << "incremented loc " << loc_it->pprint(true,true) ;
+    			cout << "Incremented loc to:" << loc_it->pprint(true, false) 
+    				 << "For agent idx " << index << endl;
     		}
     		index++; 
     	}
@@ -55,7 +56,7 @@ public:
 
 	void PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 
-		cout << "\nPlanMsgCallback called "<<endl;
+		cout << "\nPlanMsgCallback called. ";
 		if (clock_cnt_ == 0) {
 			cout << "Clock 0, not started yet." << endl;
 			//Not started yet.
@@ -63,6 +64,7 @@ public:
 		}
 		if (vector_clk_.count(msg.sender_id) > 0 
 			&& vector_clk_[msg.sender_id] == msg.agent_vector_clk) {
+			cout << "Got no plan updates." << endl;
 			return;
 		}
 
@@ -73,19 +75,19 @@ public:
 	}
 
 	void ClockMsgCallback(const distributed_mapf::ClockMsg& clkmsg) {
-		cout << "Got clock msg " << clkmsg.clock 
-			 << "Total collisions: " << collision_num_<< endl;
+		cout << "\nGot clock msg " << clkmsg.clock 
+			 << " Total collisions: " << collision_num_<< " Agent locations:" << endl;
+		//print locations:
+		for (int i = 0; i < all_locs_.size(); ++i) {
+			all_locs_[i]->pprint(false,false);
+			cout << ", ";
+		}
 		UpdateLocations();
 		clock_cnt_++;
 		if (clock_cnt_ != clkmsg.clock) {
 			//sanity check
 			cout << "Clokc sync error for monitor." << endl;
 			throw;
-		}
-		//print locations:
-		for (int i = 0; i < all_locs_.size(); ++i) {
-			all_locs_[i]->pprint(false,false);
-			cout << ", ";
 		}
 		cout << endl;
 		CheckCollision();
@@ -106,27 +108,33 @@ public:
 		cout << "Got new path from " << sender_id << ", adding it" << endl;
 		//find index from agent_ids array
 		if (agent_id_to_index_.count(sender_id) == 0) {
-		    //Add path corresponding to agent_id
+		    // sanitiy check
+			if (agent_colors_.count(sender_id) == 0) {
+				cout << "Agent " << sender_id << " did not register properly. Ignoring PlanMsg." << endl;
+				return;
+			}
+			//Add path corresponding to agent_id
 			all_paths_.push_back(path_list);
 			all_locs_.push_back(all_paths_.back().begin());
-			cout << "start of path for agent:" << path_list.begin()->pprint(true,true);
+			cout << "start of path for agent:" << path_list.begin()->pprint(true,false)
+			     << "end of path: " << path_list.back().pprint(true, true);
 			size_t agent_index = all_paths_.size()-1;
 			agent_id_to_index_[sender_id] = agent_index;
 			vector_clk_[sender_id] = agent_vector_clk;
+			cout << "Agent clock:" << agent_clock << " my clock:" << clock_cnt_ << endl;
 			alignLocWithClockDiff(agent_clock, agent_index); 
-			// sanitiy check
-			if (agent_colors_.count(sender_id) == 0) {
-				cout << "agent " << sender_id << " did not register properly." << endl;
-				throw;
-			}
-
 		} else {
-			cout << "Updating the plan for agent" << sender_id << endl;
 			size_t agent_index = agent_id_to_index_[sender_id];
+			cout << "Updating the plan for agent " << sender_id << " index " << agent_index << endl;
+			//cout << "New plan:" << endl;
+			//planning::PrintPlan(path_list);
 			all_paths_[agent_index] = path_list;
-			all_locs_[agent_index] = all_paths_.back().begin();
-			cout << "start of new path for agent:" << path_list.begin()->pprint(true,true);
+			all_locs_[agent_index]  = all_paths_[agent_index].begin();
+			vector_clk_[sender_id]  = agent_vector_clk;
+			cout << "Start of new path for agent:" << path_list.begin()->pprint(true, false)
+			     << "end of path: " << path_list.back().pprint(true, true);
 			// To set the location look at the clock of where that message was
+			cout << "Agent clock:" << agent_clock << " my clock:" << clock_cnt_ << endl;
 			alignLocWithClockDiff(agent_clock, agent_index);            
 		}
 	}
@@ -137,10 +145,15 @@ public:
 				if (*all_locs_[i] == *all_locs_[j]) {
 					cout << "Collision_detected." << endl;
 					collision_num_++;
+				} else if (std::next(all_locs_[i]) != all_paths_[i].end() &&
+						   std::next(all_locs_[j]) != all_paths_[j].end() &&
+						   *(std::next(all_locs_[i])) == *all_locs_[j] &&
+					       *(std::next(all_locs_[j])) == *all_locs_[i]) {
+					cout << "Swap_Collision_detected." << endl;
+					collision_num_++;
 				}
 			}
 		}
-		// TODO: check for collision of agents swapping vertices.
 	}
 
 	void Visualize() {
@@ -259,13 +272,20 @@ private:
             cout << "ERROR: agent_clock is ahead of monitor clock!" << endl;
             throw;
         }
-        cout << "--> Timedelta " << time_delta << "incrementing loc " 
-        	 << time_delta << "times" << endl;
+        cout << "--> Timedelta " << time_delta << ". Incrementing agent position " 
+        	 << time_delta << " times for agent " << agent_index << endl;
+        //cout << "Path is:";
+        //planning::PrintPlan(all_paths_[agent_index]);
+        //cout << "Path progression:" << endl;
         for (int i = 0; i < time_delta; i++) {
-            if (std::next(all_locs_[agent_index],1) == all_paths_[agent_index].end()) 
+            if (std::next(all_locs_[agent_index],1) == all_paths_[agent_index].end())  {
+            	//cout << " -> reached agent path end." << endl;
             	break;
+            }
             all_locs_[agent_index]++;
+            //cout << " ," << all_locs_[agent_index]->pprint(true, false);
         }
+        cout << endl;
 	}
 
 private:

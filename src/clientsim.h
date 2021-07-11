@@ -53,12 +53,16 @@ namespace simulator {
    		};
 
 		void SetNewGoal() {
-			cout << "SetNewGoal func::" << endl;
-			if (agent_registry_.size() == 0) 
+			cout << "Running SetNewGoal mechanism..." << endl;
+			if (agent_registry_.size() == 0)  {
+				cout << "No agents in registry" << endl;
 				return;
+			}
 
-			if (!bernoulli_(gen_)) 
+			if (!bernoulli_(gen_)) { 
+			    cout << "No generating goal this time." << endl;
 				return; 
+			}
 			
 			distributed_mapf::Vertex goal_vertex; 
 			distributed_mapf::GoalMsg new_goal;
@@ -71,8 +75,10 @@ namespace simulator {
 			new_goal.target_id = agent_registry_[agent_index];
 			new_goal.delay = false;
 			new_goal.vertex = goal_vertex;
-
-			cout << "Set new goal for agent " << new_goal.target_id << endl;
+            cout << "Set new goal for agent: " << new_goal.target_id << endl;
+			cout << "New  goal:" << "(" 
+			     <<  goal_vertex.loc_x  << "," << goal_vertex.loc_y 
+				 << ")" << endl;
 			goal_pub_.publish(new_goal);
 
 		};
@@ -87,6 +93,8 @@ namespace simulator {
     	}
 
     	void RegisterMsgCallback(const distributed_mapf::RegMsg& msg) {
+    		cout << "from agent  " << msg.sender_id << endl;
+    		cout << " Num of agents in registry:" << agent_registry_.size() << endl;
     		if (agent_set_.find(msg.sender_id) != agent_set_.end())
 				return;
 

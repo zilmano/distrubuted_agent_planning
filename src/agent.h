@@ -79,12 +79,17 @@ public:
     	distributed_mapf::RegMsg msg;
   		msg.sender_id = agent_id_;
     	msg.sender_color = color_;
-    	msg.sender_loc.loc_x = current_loc_.loc.x();
-    	msg.sender_loc.loc_y = current_loc_.loc.y();
+    	
+		Eigen::Vector2f current_loc = graph_.GetLocFromVertexIndex(
+    											current_loc_->x,
+    											current_loc_->y); 
+    	        
+    	msg.sender_loc.loc_x = current_loc.x();
+    	msg.sender_loc.loc_y = current_loc.y();
 
     	Eigen::Vector2f goal_loc = graph_.GetLocFromVertexIndex(
-    		my_plan_.back().x,
-    		my_plan_.back().y); 
+    											my_plan_.back().x,
+    											my_plan_.back().y); 
     	msg.sender_goal.loc_x = goal_loc.x();
     	msg.sender_goal.loc_y = goal_loc.y();
 
@@ -172,20 +177,35 @@ public:
     void GoalMsgCallback(const distributed_mapf::GoalMsg& msg);
 
     void ClockMsgCallback(const distributed_mapf::ClockMsg& clkmsg) {
-    	clock_cnt_ = clkmsg.clock;
+    	auto clock_diff = clkmsg.clock - clock_cnt_;
+    	if (clock_diff < 0)
+    		cout << "Impossible situation. Centralized clock is falling behind agent clock.";
+    	
+    	if (clock_cnt_ == 0) { 
+    		clock_cnt_ = clkmsg.clock;
+        } else {
+        	clock_cnt_ = clkmsg.clock;
+
+	    	for (auto i = 0; 
+    			i < clock_diff && std::next(current_loc_, 1) != my_plan_.end(); ++i) {
+    			current_loc_++;
+    		}
+    	}
+    	cout << "Got clock " << clkmsg.clock << ". Current loc:" << current_loc_->pprint(true, true);
     }
 
-    void Plan(const navigation::PoseSE2& start, 
+    bool Plan(const navigation::PoseSE2& start, 
     		  const navigation::PoseSE2& goal) {
-        current_loc_ = start;
-    	done_ = local_Astar_.generatePath(start, goal);
+        done_ = local_Astar_.generatePath(start, goal);
     	if (done_) {
     		my_plan_ = local_Astar_.getPlan();
     		own_vector_clk_++;
+    		current_loc_ = my_plan_.begin();
+    		return true;
 		} else {
 			cout << "ERROR: could not find path from start to goal" << endl;
+			return false;
 		}
-
     };
 
 
@@ -213,7 +233,7 @@ public:
 			prev_otherit = otherit;
 			if (std::next(myit,1) != my_plan_.end())
 				myit++;
-			if (next(otherit, 1) != other_plan.end())
+			if (std::next(otherit, 1) != other_plan.end())
 				otherit++;
 		} while (std::next(myit,1) != my_plan_.end() || 
 			     next(otherit, 1) != other_plan.end());
@@ -257,7 +277,8 @@ private:
     bool done_;
     bool ideal_; // ideal communication conditions.
     list<planning::GraphIndex> my_plan_;
-    navigation::PoseSE2 current_loc_;
+    //navigation::PoseSE2 current_loc_;
+    list<planning::GraphIndex>::const_iterator current_loc_;
     planning::GraphIndex collision_vertex_;
 
 	
