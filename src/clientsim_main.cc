@@ -13,7 +13,7 @@ ros::Subscriber register_sub_;
 ClientSim* clientsim_;
 
 void registerCallback(const distributed_mapf::RegMsg& msg) {
-    cout << "Client::Getting Register callback." << endl;
+    //cout << "Client::Getting Register callback." << endl;
     clientsim_->RegisterMsgCallback(msg);
 
 }
@@ -25,61 +25,47 @@ void initComm(ros::NodeHandle& n) {
 
 int main(int argc, char **argv) {
 
-	ros::init(argc, argv, "clientsim");
-  	ros::NodeHandle n;
+  ros::init(argc, argv, "clientsim");
+    ros::NodeHandle n;
 
-	simulator::Params params;
-	params.plan_x_start = defs::plan_x_start;
-	params.plan_x_end = defs::plan_x_end; 
-	params.plan_y_start = defs::plan_y_start;;
-	params.plan_y_end = defs::plan_y_end;
-	params.goal_change_freq = 5;
-	params.goal_change_prob = 0.6;
+  simulator::Params params;
+  params.plan_x_start = defs::plan_x_start;
+  params.plan_x_end = defs::plan_x_end; 
+  params.plan_y_start = defs::plan_y_start;;
+  params.plan_y_end = defs::plan_y_end;
+  params.goal_change_freq = 5;
+  params.goal_change_prob = 0.9;
 
-	if(params.plan_x_start<0){
-		params.offset_x = -1 * (params.plan_x_start);
-	}else{
-		params.offset_x = 0;
-	
-	}
+  clientsim_ = new ClientSim(&n, params);
+  initComm(n);
 
-	if(params.plan_y_start<0){
-                params.offset_y = -1 * (params.plan_y_start);
-        }else{
-                params.offset_y = 0;
-
-        }
-
-	
-	clientsim_ = new ClientSim(&n, params);
-	initComm(n);
-
-	std::default_random_engine generator;
-	generator.seed(time(0));
-	std::uniform_int_distribution<unsigned int> goal_change_step_dist(
-    			params.goal_change_freq-1, 
-    			params.goal_change_freq+5
+  std::default_random_engine generator;
+  generator.seed(time(0));
+  std::uniform_int_distribution<unsigned int> goal_change_step_dist(
+          params.goal_change_freq-1, 
+          params.goal_change_freq+5
     );
     
 
-	ros::Rate loop_rate(0.5);
+  ros::Rate loop_rate(1);
 
-	unsigned int step_cnt = 1;
-	unsigned int goal_change_step = goal_change_step_dist(generator);
-	
-	while (ros::ok()) {
-		if (step_cnt == goal_change_step) {
-			cout << "Goal setting step reached." << endl;
-			step_cnt = 0;
-			clientsim_->SetNewGoal();
-			goal_change_step = goal_change_step_dist(generator);
+  unsigned int step_cnt = 1;
+  unsigned int goal_change_step = goal_change_step_dist(generator);
+  
+  while (ros::ok()) {
+    if (step_cnt == goal_change_step) {
+      cout << "Goal setting step reached." << endl;
+      step_cnt = 0;
+      clientsim_->SetNewGoal();
+      goal_change_step = goal_change_step_dist(generator);
 
-		}
- 		ros::spinOnce();
- 		step_cnt += 1;
- 		loop_rate.sleep();
-	}	
-	return 0;
+    }
+    cout << "clock tick..." << endl;
+    ros::spinOnce();
+    step_cnt += 1;
+    loop_rate.sleep();
+  } 
+  return 0;
 }
 
 

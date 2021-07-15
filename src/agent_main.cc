@@ -202,27 +202,20 @@ void test_plan_comm(int argc,char **argv) {
 
   agent_->LoadMap();
   //planning::Graph agentGraph = agent_->GetLocalGraph();
-  
   agent_->Plan(start, goal);
-  planning::Graph agentGraph = agent_->GetLocalGraph();
   agent_->PublishRegister();
   loop_rate.sleep();
   while (ros::ok()) {
-      /**
-      * This is a message object. You stuff it with data, and then publish it.
-      */
       
       /*std_msgs::String msg;
       std::stringstream ss;
       ss << "hello world " << count;
       msg.data = ss.str();
-
       ROS_INFO("%s", msg.data.c_str());*/
       //distributed_mapf::PathMsg msg;
       //msg.sender_id = (unsigned int)pid;
 
       ros::spinOnce();
-
       distributed_mapf::PathMsg cmd_msg = makeNotifyMsg(pid);
       agent_->PublishPlan(cmd_msg);
       agent_->PublishRegister();

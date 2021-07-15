@@ -83,7 +83,7 @@ namespace navigation {
                 return *this;
             }
 
-            void pprint(std::string prefix="Pose:",bool endline=true) {
+            void pprint(std::string prefix="Pose:",bool endline=true) const {
 
                 std::cout << prefix << " (" << loc.x() << "," << loc.y() << ")"
                            << " a:" << angle;

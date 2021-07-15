@@ -588,17 +588,10 @@ int main_test_temp(int argc, char **argv) {
   return 0;
 }
 
-
-
-
 int main(int argc, char **argv)
 {
-  
-
   main_test_temp(argc, argv);
   //main_test_graph(argc, argv);
-
-
   return 0;
   
 }

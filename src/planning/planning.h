@@ -269,6 +269,7 @@ public:
             return val.str();
             //cout << endl;
         }
+        
         vector<GraphIndex> jointState;
         list<std::shared_ptr<Node>> neighbors;
     };
@@ -284,12 +285,17 @@ public:
     bool GetVertex(vector<GraphIndex> state, NodePtr& vertex) const {
         long int flatIndex = GetFlatIndexFromJointState(state);
         unordered_map<long int, NodePtr>::const_iterator it = 
+        
                                                     vertices_.find(flatIndex);
         if (it == vertices_.end()) {
             // throw error?
             std::string msg = "MultiAgentGraph::GetVertex:: Requested Vertex is out of bounds.";
             cout << msg << endl;
-            
+            cout << "State: [";
+            for (auto &v : state) {
+                cout << v.pprint(true, false);
+            }
+            cout << "]" << endl;
             throw;
             //return false;
         }
@@ -394,7 +400,7 @@ public:
         
         GraphIndex startVertex;
         GraphIndex endVertex;
-        cout << "For plan: "; PrintPlan(plan); 
+        cout << "Adding agent to joint space. For plan: "; PrintPlan(plan); 
         if (agentGraph_->HasWindow()) {
             if (!GetStartEndInWindow(plan ,startVertex, endVertex)) {
                 cout << "Sanitiy check::AddAgentToJointSpace: path and window don't align for agent." << endl;
@@ -449,7 +455,66 @@ public:
         root_ = AddNode(jointStartState_, nodeQueue);
         cout << "Set root " << root_->pprint() << endl;
         cout << "Set goal "; pprintState(jointGoalState_,false);
+        // Workaround. Oleg: cheat a little bit. If there is a collision in the 
+        //goal state, move around a bit :)
+        size_t i = 0;
+        for (auto it = jointGoalState_.begin(); 
+            it != jointGoalState_.end(); ++it) {
+            auto curr_goal = it;
+            if (std::next(it,1) != jointGoalState_.end() 
+                  && *(std::next(it,1)) == *curr_goal) {
         
+                if (numOfAgents_ > 2) {
+                    cout << "Goal overlap found when planning jointly for more then two agents."
+                            " This is not supported yet." << endl;
+                    throw;
+                }
+
+                // move agent goal to be one backwards in the window
+                for (auto v_it = agentOrigPlans_[i].begin();
+                          v_it != agentOrigPlans_[i].end(); v_it++) {
+                    auto next_vertex = std::next(v_it, 1);
+                    if (*next_vertex == *curr_goal) {
+                        curr_goal->x = v_it->x;
+                        curr_goal->y = v_it->y;
+                        break;
+                    }
+                }
+            }
+            
+            i++;
+        }
+        /*auto window_center   = agentGraph_->GetWindowCenter();
+        auto window_vertices = agentGraph_->GetWindowVertices();
+        for (auto it = jointGoalState_.begin(); 
+             it != jointGoalState_.end(); ++it) {
+             if (std::next(it,1) != jointGoalState_.end() 
+                && *(std::next(it,1) == *it ) {
+                if (!agentGraph_->HasWindow()) {
+                    cout << "ERROR: found overlapping goals for agent when there is no graph window." << endl;
+                    throw;
+                }
+                next_agent_goal = std::next(it,1);
+                
+                if (next_agent_goal.x == 
+                      (window_center_.x - window_vertices.x())) {
+                    next_agent_goal->y += 1;  
+
+                } else if () {
+
+                }
+                 
+                    vertex.x <= (window_center_.x + window_vertices_.x()) &&
+             vertex.y >= (window_center_.y - window_vertices_.y()) &&
+             vertex.y <= (window_center_.y + window_vertices_.y())) {
+            return true;
+        }       
+
+            }
+        }*/
+
+        //Workaround end.
+
         // Start BFS until node queue is empty. Expand neigbors for each node,
         // create nodes for the, and add to the queue and to the curr node's
         // neigbors 
@@ -597,6 +662,9 @@ private:
                 if (agentGraph_->IsVertexInWindow(*it)) {
                     startVertex = *it;
                     in_window = true;
+                    if (*it == agentGraph_->GetWindowCenter()) {
+                        passed_center = true;
+                    }
                 } 
             } else if (!passed_center) {
                 if (*it == agentGraph_->GetWindowCenter()) {
@@ -741,16 +809,44 @@ public:
             list<GraphIndex> agentPath;
             GetAgentPath(agentPath, agentIndex);
             list<GraphIndex>::iterator window_start, window_end; 
+            bool first_itr = true;
             for (auto it = origPlan.begin(); it != origPlan.end(); ++it) {
                 if (*it == agentPath.front()) {
                     window_start = it;
+                    if (first_itr) {
+                        window_start = std::next(it,1);
+                    }
                 } 
                 if (*it == agentPath.back()) {
                     window_end = ++it;
                     origPlan.erase(window_start, window_end);
                     origPlan.insert(window_end, agentPath.begin(), agentPath.end());
+                    // De-dup end of path
+                    auto dup_start = origPlan.end();
+                    auto pit = origPlan.begin();
+                    bool dup_seq = false;
+                    //cout << "Start de-duping:" << endl;
+                    while(std::next(pit,1) != origPlan.end()) {
+                        //cout << "Curr:" << (*std::next(pit,1)).pprint(true, false) 
+                        //    << " Next:" << (*pit).pprint(true, false) << endl;
+                        if (!dup_seq && *(std::next(pit,1)) == *pit ) {
+                        //    cout  << "Dup start..." << endl;
+                            dup_seq = true;
+                            dup_start = std::next(pit,1);
+                        } else if (*(std::next(pit,1)) != *pit) {
+                            dup_seq = false;
+                        //    cout << "Dup end..." << endl;
+                        } 
+                        pit++;
+                    }
+                    if (dup_seq) {
+                       //cout << "Erasing dups" << endl;
+                       origPlan.erase(dup_start, origPlan.end()); 
+                    }
+                    //De-dup end.
                     return;
                 } 
+                first_itr = false;
             }
             cout << "MapfAsterPlanner::ERROR: Could not plug window fix into the original path." << endl;
         }

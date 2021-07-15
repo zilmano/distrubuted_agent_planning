@@ -139,6 +139,11 @@ namespace planning {
         //cout << vertex_num_x << " " << vertex_num_y << endl;
         if (vertex_num_x > num_vertices_x_ || vertex_num_y > num_vertices_y_) {
             cout << "ERROR: planning::Graph::getClosestVertex -> Provided pose is outside (above) of planning map bounds" << endl;
+            pose.pprint("Pose:", true);
+            cout << "vertex_num_x:" << vertex_num_x 
+                 << "num_vertices_x_:" << num_vertices_x_
+                 << "vertex_num_y:" << vertex_num_y 
+                 << "num_vertices_y_" << num_vertices_y_ << endl;
             throw;
         }
 
@@ -419,7 +424,7 @@ namespace planning {
         cout << "Starting generatePath..." << endl;
         cout << "Start/Goal states:" << endl;
         pprintState(start->jointState, false);
-        pprintState(goal->jointState, true);
+        pprintState(goal->jointState, false);
         //cout << endl;
 
         priority_queue<element, vector<element>, std::greater<element>> frontier;
@@ -478,7 +483,7 @@ namespace planning {
         }
         
         goal_cost_ = cost_so_far[graph_.GetFlatIndexFromJointState(goal)];
-        cout << "A* start Done." << endl << endl;
+        cout << "A* start Done." << endl;
 
         MultiAgentGraph::NodePtr current = goal;
         path_.push_back(goal->jointState);
@@ -494,12 +499,12 @@ namespace planning {
     double MultiAgentAstar::calcCost(const JointState& currentVertex, 
                                      const JointState& nextVertex){
         // Calculate cost in term of time steps.
-        unsigned int cost  = 0;
+        double cost  = 0;
         JointState goal = graph_.GetGoalState();
         for (size_t i = 0; i < graph_.NumOfAgents(); ++i) {
-            unsigned int eucldist = std::sqrt(
-                std::pow(nextVertex[i].x - currentVertex[i].x, 2) + 
-                std::pow(nextVertex[i].y - currentVertex[i].y, 2)
+            double eucldist = std::sqrt(
+                std::pow(double(nextVertex[i].x - currentVertex[i].x), 2) + 
+                std::pow(double(nextVertex[i].y - currentVertex[i].y), 2)
             );
 
             if (eucldist == 0) {
@@ -507,7 +512,12 @@ namespace planning {
                     cost += 1;
                 }
             } else {
-                cost += eucldist/speed_;
+                if (currentVertex[i] == goal[i]) {
+                       cost += 50*eucldist;
+                } else {
+                    //cost += eucldist/speed_;
+                    cost += eucldist;
+                }
             
             }
         }
@@ -518,16 +528,15 @@ namespace planning {
     double MultiAgentAstar::calcHeuristic(const JointState& nextVertex) {
 
         // Calculate euclidian distanance heuristic, in terms of time steps.
-        unsigned int cost  = 0;
+        double cost  = 0;
         JointState goal = graph_.GetGoalState();
         for (size_t i = 0; i < graph_.NumOfAgents(); ++i) {
             cost += std::sqrt(
-                std::pow(nextVertex[i].x - goal[i].x, 2) + 
-                std::pow(nextVertex[i].y - goal[i].y, 2)
+                std::pow(double(nextVertex[i].x - goal[i].x), 2) + 
+                std::pow(double(nextVertex[i].y - goal[i].y), 2)
             );
-            cost /= speed_;
+            //cost /= speed_;
         }
-        
         return cost;
     }
    
