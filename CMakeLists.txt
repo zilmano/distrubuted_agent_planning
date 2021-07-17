@@ -145,7 +145,6 @@ add_library(utils_lib
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(agent src/agent.cc src/agent_main.cc)
-add_executable(test_agent src/agent.cc src/agent_test.cc)
 add_executable(second_agent src/agent_secondary.cc src/agent.cc)
 add_executable(clientsim src/clientsim_main.cc)
 add_executable(monitor src/monitor_main.cc)
@@ -158,7 +157,6 @@ add_executable(central_clock src/central_clock_main.cc)
 ## either from message generation or dynamic reconfigure
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(agent distributed_mapf_generate_messages_cpp)
-add_dependencies(test_agent distributed_mapf_generate_messages_cpp)
 add_dependencies(second_agent distributed_mapf_generate_messages_cpp)
 add_dependencies(clientsim distributed_mapf_generate_messages_cpp)
 add_dependencies(monitor distributed_mapf_generate_messages_cpp)
@@ -178,7 +176,6 @@ add_dependencies(central_clock distributed_mapf_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(agent ${catkin_LIBRARIES} utils_lib glog)
-target_link_libraries(test_agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(second_agent ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(clientsim ${catkin_LIBRARIES} utils_lib glog)
 target_link_libraries(monitor ${catkin_LIBRARIES} utils_lib glog)

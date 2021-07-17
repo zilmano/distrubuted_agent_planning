@@ -284,9 +284,9 @@ public:
 
     bool GetVertex(vector<GraphIndex> state, NodePtr& vertex) const {
         long int flatIndex = GetFlatIndexFromJointState(state);
+        cout << "flatIndex:" << flatIndex << endl;
         unordered_map<long int, NodePtr>::const_iterator it = 
-        
-                                                    vertices_.find(flatIndex);
+                                        vertices_.find(flatIndex);
         if (it == vertices_.end()) {
             // throw error?
             std::string msg = "MultiAgentGraph::GetVertex:: Requested Vertex is out of bounds.";
@@ -763,12 +763,19 @@ public:
     typedef std::pair<double, MultiAgentGraph::NodePtr> element;
 public:
     //A_star():start_(GraphIndex(0,0,0)), goal_(GraphIndex(0,0,0)) {};
-    explicit MultiAgentAstar() {};
-    explicit MultiAgentAstar(MultiAgentGraph graph, double speed, double time_step) {
+    explicit MultiAgentAstar(): graph_(NULL) {};
+    explicit MultiAgentAstar(MultiAgentGraph* graph, double speed, double time_step) {
         Init(graph, speed, time_step);
     };
+
+    ~MultiAgentAstar() {
+        if (graph_ != NULL) 
+            delete graph_;
+    };
     
-    void Init(MultiAgentGraph graph, double speed,double time_step) {
+    void Init(MultiAgentGraph* graph, double speed,double time_step) {
+        if (graph_ != NULL) 
+            delete graph_;
         graph_ = graph; 
         speed_ = speed;
         time_step_ = time_step;
@@ -780,10 +787,10 @@ public:
     //std::map<JointState, float> generateDijCost();
 
     unsigned int NumOfAgents() const {
-        return graph_.NumOfAgents();
+        return graph_->NumOfAgents();
     }
 
-    MultiAgentGraph GetGraph() const {
+    MultiAgentGraph* GetGraph() const {
         return graph_;
     }
 
@@ -795,14 +802,14 @@ public:
     }
 
     list<GraphIndex> PlugAgentPath(unsigned int agentIndex) {
-        list<GraphIndex> agentPath = graph_.GetAgentOrigPlan(agentIndex);
+        list<GraphIndex> agentPath = graph_->GetAgentOrigPlan(agentIndex);
         PlugAgentPath(agentPath, agentIndex);
         return agentPath;
     }
 
     void PlugAgentPath(list<GraphIndex>& origPlan, 
                                    unsigned int agentIndex) {
-        if (!graph_.HasWindow()) {
+        if (!graph_->HasWindow()) {
             origPlan.clear();
             GetAgentPath(origPlan, agentIndex); 
         } else {
@@ -853,7 +860,7 @@ public:
     }  
 
     bool HasPlanChanged(unsigned int agentIndex, const list<GraphIndex>& newPlan) {
-        const list<GraphIndex>& origPlan = graph_.GetAgentOrigPlan(agentIndex);
+        const list<GraphIndex>& origPlan = graph_->GetAgentOrigPlan(agentIndex);
         auto orig_it = origPlan.cbegin();
         auto new_it = newPlan.cbegin();
         while(true) {
@@ -869,7 +876,7 @@ public:
     }  
 
     unsigned int GetAgentIdFromIndex(size_t agentIndex) {
-        return graph_.GetAgentIdFromIndex(agentIndex);
+        return graph_->GetAgentIdFromIndex(agentIndex);
     } 
 
 private:
@@ -879,7 +886,7 @@ private:
     double calcHeuristic(const JointState& next);
 
 private:
-    MultiAgentGraph graph_;   
+    MultiAgentGraph* graph_;   
     std::list<JointState> path_;
     //std::list<GraphIndex>::const_iterator curr_path_vertex_;
     float goal_cost_;

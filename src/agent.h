@@ -290,7 +290,6 @@ private:
     planning::Graph graph_;
     planning::A_star local_Astar_;
     planning::MultiAgentAstar mapf_Astar_;
-    planning::MultiAgentGraph mapf_graph_;
     vector_map::VectorMap map_;
     
     Params params_;
