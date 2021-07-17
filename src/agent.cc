@@ -100,6 +100,8 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                         issued_command_to.insert(reply_msg.target_id);
                     }
                 }
+                // reset the graph to save memory.    
+                mapf_Astar_ = planning::MultiAgentAstar(); // Init mapf_Astar to conserve memory.
             } else {
                 cout << "No collision detected. Carry on." << endl;
             }
@@ -175,8 +177,8 @@ void Agent::ChangePlan(const distributed_mapf::PathMsg& msg) {
 void Agent::JointReplan(const list<planning::GraphIndex>& recieved_plan, unsigned int other_agent_id) {
     cout << "Agent::" << agent_id_ << ":: Starting Joint Replan..." << endl;
     
-    mapf_Astar_ = planning::MultiAgentAstar(); // Init mapf_Astar to conserve memory.
-    planning::MultiAgentGraph* mapf_graph = new planning::MultiAgentGraph();
+    std::shared_ptr<planning::MultiAgentGraph> mapf_graph = 
+                            std::make_shared<planning::MultiAgentGraph>();
     
     mapf_graph->AddAgentGraph(graph_); // OLEG TODO: Need to "redistrict it" 
                                        // aroud the collision point

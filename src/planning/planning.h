@@ -763,19 +763,12 @@ public:
     typedef std::pair<double, MultiAgentGraph::NodePtr> element;
 public:
     //A_star():start_(GraphIndex(0,0,0)), goal_(GraphIndex(0,0,0)) {};
-    explicit MultiAgentAstar(): graph_(NULL) {};
-    explicit MultiAgentAstar(MultiAgentGraph* graph, double speed, double time_step) {
+    explicit MultiAgentAstar(): graph_(nullptr){}
+    explicit MultiAgentAstar(std::shared_ptr<MultiAgentGraph> graph, double speed, double time_step) {
         Init(graph, speed, time_step);
     };
 
-    ~MultiAgentAstar() {
-        if (graph_ != NULL) 
-            delete graph_;
-    };
-    
-    void Init(MultiAgentGraph* graph, double speed,double time_step) {
-        if (graph_ != NULL) 
-            delete graph_;
+    void Init(std::shared_ptr<MultiAgentGraph> graph, double speed,double time_step) {
         graph_ = graph; 
         speed_ = speed;
         time_step_ = time_step;
@@ -790,7 +783,7 @@ public:
         return graph_->NumOfAgents();
     }
 
-    MultiAgentGraph* GetGraph() const {
+    std::shared_ptr<MultiAgentGraph> GetGraph() const {
         return graph_;
     }
 
@@ -886,7 +879,7 @@ private:
     double calcHeuristic(const JointState& next);
 
 private:
-    MultiAgentGraph* graph_;   
+    std::shared_ptr<MultiAgentGraph> graph_;   
     std::list<JointState> path_;
     //std::list<GraphIndex>::const_iterator curr_path_vertex_;
     float goal_cost_;
