@@ -316,6 +316,7 @@ private:
 
     // vector clock;
     unsigned long own_vector_clk_;
+    unordered_map<unsigned int, unsigned long> vector_clk_;
 };
 
 }

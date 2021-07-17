@@ -241,10 +241,6 @@ namespace planning {
     bool A_star::generatePath(const navigation::PoseSE2& start, 
                               const navigation::PoseSE2& goal, const bool& heuristic){
 
-        //cout << "\n\nStarting generatePath..." << endl;
-        //       debug::print_loc(start.loc," start loc", false);
-        //       debug::print_loc(goal.loc," goal loc", true);
-
         findStartAndGoalVertex(start, goal);
 
         std::priority_queue<element, std::vector<element>, std::greater<element>> frontier;
@@ -418,8 +414,10 @@ namespace planning {
     bool MultiAgentAstar::GeneratePath(bool heuristic){
 
         //findStartAndGoalVertex(start, goal);
-        MultiAgentGraph::NodePtr start = graph_.GetStartNode();
-        MultiAgentGraph::NodePtr goal  = graph_.GetGoalNode();
+        cout << "Find start node..." << endl;
+        MultiAgentGraph::NodePtr start = graph_->GetStartNode();
+        cout << "Find end node..." << endl;
+        MultiAgentGraph::NodePtr goal  = graph_->GetGoalNode();
 
         cout << "Starting generatePath..." << endl;
         cout << "Start/Goal states:" << endl;
@@ -434,7 +432,7 @@ namespace planning {
 
         frontier.emplace(0, start);
         //came_from[start_.jointState] = start_.jointState;
-        cost_so_far[graph_.GetFlatIndexFromJointState(start)] = 0;
+        cost_so_far[graph_->GetFlatIndexFromJointState(start)] = 0;
         
         while (true){
             if (frontier.empty()) {
@@ -454,27 +452,27 @@ namespace planning {
                 break;
             }
 
-            if (expanded.find(graph_.GetFlatIndexFromJointState(current)) 
+            if (expanded.find(graph_->GetFlatIndexFromJointState(current)) 
                                                              != expanded.end()) {
                 continue; 
             }
             
-            expanded.insert(graph_.GetFlatIndexFromJointState(current));
+            expanded.insert(graph_->GetFlatIndexFromJointState(current));
 
             for(auto &neighbor : current->neighbors){
                 //cout << "Neighbor: "; pprintState(neighbor->jointState, true);
                 double new_cost = 
-                    cost_so_far[graph_.GetFlatIndexFromJointState(current)] + 
+                    cost_so_far[graph_->GetFlatIndexFromJointState(current)] + 
                     calcCost(current->jointState, neighbor->jointState);
                 
                 if (heuristic)
                     new_cost += calcHeuristic(neighbor->jointState);
 
                 //cout << "Neighbor cost:" << new_cost << " Current Cost:" << cost_so_far[current] << std::endl;
-                if(cost_so_far.find(graph_.GetFlatIndexFromJointState(neighbor)) == cost_so_far.end() 
-                    || new_cost < cost_so_far[graph_.GetFlatIndexFromJointState(neighbor)]){
-                    cost_so_far[graph_.GetFlatIndexFromJointState(neighbor)] = new_cost;
-                    came_from[graph_.GetFlatIndexFromJointState(neighbor)] = current;
+                if(cost_so_far.find(graph_->GetFlatIndexFromJointState(neighbor)) == cost_so_far.end() 
+                    || new_cost < cost_so_far[graph_->GetFlatIndexFromJointState(neighbor)]){
+                    cost_so_far[graph_->GetFlatIndexFromJointState(neighbor)] = new_cost;
+                    came_from[graph_->GetFlatIndexFromJointState(neighbor)] = current;
                     //cout << "New cost found" << std::endl;
                     frontier.emplace(new_cost, neighbor);
 
@@ -482,14 +480,14 @@ namespace planning {
             }
         }
         
-        goal_cost_ = cost_so_far[graph_.GetFlatIndexFromJointState(goal)];
+        goal_cost_ = cost_so_far[graph_->GetFlatIndexFromJointState(goal)];
         cout << "A* start Done." << endl;
 
         MultiAgentGraph::NodePtr current = goal;
         path_.push_back(goal->jointState);
         while(current != start){
-            path_.push_front(came_from[graph_.GetFlatIndexFromJointState(current)]->jointState);
-            current = came_from[graph_.GetFlatIndexFromJointState(current)];
+            path_.push_front(came_from[graph_->GetFlatIndexFromJointState(current)]->jointState);
+            current = came_from[graph_->GetFlatIndexFromJointState(current)];
         }
 
         return true;
@@ -500,8 +498,8 @@ namespace planning {
                                      const JointState& nextVertex){
         // Calculate cost in term of time steps.
         double cost  = 0;
-        JointState goal = graph_.GetGoalState();
-        for (size_t i = 0; i < graph_.NumOfAgents(); ++i) {
+        JointState goal = graph_->GetGoalState();
+        for (size_t i = 0; i < graph_->NumOfAgents(); ++i) {
             double eucldist = std::sqrt(
                 std::pow(double(nextVertex[i].x - currentVertex[i].x), 2) + 
                 std::pow(double(nextVertex[i].y - currentVertex[i].y), 2)
@@ -529,8 +527,8 @@ namespace planning {
 
         // Calculate euclidian distanance heuristic, in terms of time steps.
         double cost  = 0;
-        JointState goal = graph_.GetGoalState();
-        for (size_t i = 0; i < graph_.NumOfAgents(); ++i) {
+        JointState goal = graph_->GetGoalState();
+        for (size_t i = 0; i < graph_->NumOfAgents(); ++i) {
             cost += std::sqrt(
                 std::pow(double(nextVertex[i].x - goal[i].x), 2) + 
                 std::pow(double(nextVertex[i].y - goal[i].y), 2)
