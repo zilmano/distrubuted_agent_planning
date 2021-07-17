@@ -284,7 +284,6 @@ public:
 
     bool GetVertex(vector<GraphIndex> state, NodePtr& vertex) const {
         long int flatIndex = GetFlatIndexFromJointState(state);
-        cout << "flatIndex:" << flatIndex << endl;
         unordered_map<long int, NodePtr>::const_iterator it = 
                                         vertices_.find(flatIndex);
         if (it == vertices_.end()) {

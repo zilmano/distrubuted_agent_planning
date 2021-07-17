@@ -53,6 +53,23 @@ static void ConvertGraphIndexListToPathMsg(const list<planning::GraphIndex>& pla
     }
 }
 
+static void UpdatePlanToCurrentTime(unsigned long sender_clock_stamp,
+                                    unsigned long my_clock_stamp, 
+                                    list<planning::GraphIndex>& plan) {
+    unsigned long time_delta = (my_clock_stamp - sender_clock_stamp);
+    
+    cout << "  DBG::updating plan to current time. time delta:" << time_delta 
+         << "my " << my_clock_stamp << " his " << sender_clock_stamp <<endl;
+
+    if (sender_clock_stamp > my_clock_stamp) {
+        cout << "ERROR: Impossible situation where recieved clock is smaller then sent clock." << endl;
+        throw;
+    }
+    for (auto i = 0; i < time_delta; i++) {
+        plan.pop_front();
+    }
+}
+
 
 class Agent {
 

@@ -34,15 +34,13 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
     ConvertPathMsgToGraphIndexList(msg, recievedPlan_temp);
     add_path(msg.sender_id, recievedPlan_temp);
     */
+    
+    if (clock_cnt_ == 0) {
+        return; // agent has not sync with the clock server yet.
+    }
 
-    if (vector_clk_.count(msg.sender_id) > 0 
-            && msg.agent_vector_clk <= vector_clk_[msg.sender_id]) {
-        cout << "Got msg" << endl
-             << "But vector clock says that message is stale. Ignoring." << endl << endl;
-    } else if (agent_id_ != (unsigned int) msg.sender_id) {
+    if (agent_id_ != (unsigned int) msg.sender_id) {
         cout << endl << "Got msg" << endl;
-        vector_clk_[msg.sender_id]  = msg.agent_vector_clk;
-        
         // Drop the packet if the random number is not multiple of ten
         if (!ideal_) {
             srand (time(NULL));
@@ -55,19 +53,27 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                 sleep(2);
         }
 
-        ROS_INFO("Agent [%s]:I heard a plan message from agent [%s],"
+        /*ROS_INFO("Agent [%s]:I heard a plan message from agent [%s],"
                  "change command [%s]",
             std::to_string(agent_id_).c_str(), 
             std::to_string(msg.sender_id).c_str(),
-            std::to_string(msg.set_new_plan).c_str());
-
-//        if (vector_clk.count(msg.sender_id) > 0 &&
-//              msg.agent_vector_clk <= vector_clk[msg.agent_id])
-
+            std::to_string(msg.set_new_plan).c_str());*/
+        cout << "[ INFO] Agent ["<< agent_id_ << "]:" 
+             << "I heard a plan message from agent [" <<  msg.sender_id << "],"
+             <<    "change command [" << msg.set_new_plan<< "]" << endl;
+            
         if(!msg.set_new_plan) {
+            if (vector_clk_.count(msg.sender_id) > 0 
+                     && msg.agent_vector_clk <= vector_clk_[msg.sender_id]) {
+                cout << "Got msg" << endl
+                << "Information message. But vector clock says that message is stale. Ignoring." << endl << endl;
+                return;
+            }
+            vector_clk_[msg.sender_id]  = msg.agent_vector_clk;
             //message from agent A to B notifying of A' change of plan.
             list<planning::GraphIndex> recieved_plan;
             ConvertPathMsgToGraphIndexList(msg, recieved_plan);
+            UpdatePlanToCurrentTime(msg.clock, clock_cnt_, recieved_plan);
             cout << "Agent::" << agent_id_ << ":: Working on detecting a collision..." << endl;
             bool collision_found = DetectCollision(recieved_plan);
             if (collision_found && recieved_plan.front() == my_plan_.front()) {
@@ -82,8 +88,11 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                         mapf_Astar_.PlugAgentPath(my_plan_, i);
                         cout << "New plan after joint astar:" << endl;
                         planning::PrintPlan(my_plan_);
-                        if (mapf_Astar_.HasPlanChanged(i, my_plan_));
+                        if (mapf_Astar_.HasPlanChanged(i, my_plan_))
                             own_vector_clk_++;
+                        else 
+                            cout << "My plan hasn't changed." << endl;
+                        
                         // TODO: notify other agents that plan has changed.
                         continue;
                     }
@@ -98,12 +107,16 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                         reply_msg.clock = clock_cnt_;
                         reply_msg.agent_vector_clk = own_vector_clk_;
                         ConvertGraphIndexListToPathMsg(agent_path, reply_msg);
-                        cout << "Agent::" << agent_id_ << ":: Send new plan to other agent" << endl; 
+                        cout << "Agent::" << agent_id_ 
+                             << ":: Send new plan to other agent " << reply_msg.target_id  
+                             << ":" << endl; 
+                        planning::PrintPlan(my_plan_);
                         if (vector_clk_.count(reply_msg.target_id) == 0) {
                             cout << "ERROR: vector clock for agent " << reply_msg.target_id
                                  << " has not been initialized." << endl;
                             throw;
                         }
+                        cout << "Plan was sent! --" << endl << endl;
                         vector_clk_[reply_msg.target_id] += 1;
                         PublishPlan(reply_msg);
                         issued_command_to.insert(reply_msg.target_id);
@@ -117,6 +130,12 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
             }
 
         } else if (agent_id_ == msg.target_id){
+           if (vector_clk_.count(msg.sender_id) > 0 
+                     && msg.agent_vector_clk < vector_clk_[msg.sender_id]) {
+                cout << "Got msg" << endl
+                << "set gpa message. But vector clock says that message is stale. Ignoring." << endl << endl;
+                return;
+            }
            vector_clk_[msg.sender_id]  = msg.agent_vector_clk;
            // message B from A after B detected a collision and recalculated a joint plan
            // for both B and A
@@ -138,6 +157,9 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 }
 
 void Agent::GoalMsgCallback(const distributed_mapf::GoalMsg& msg) {
+    if (clock_cnt_ == 0) 
+        return; //agent hasn't synced with central clock yet.
+
     if (agent_id_ == (unsigned int) msg.target_id) {
         cout << "\n\n *****  Got new goal from client.. ******" << endl;
         cout << "x and y corrdinates of new goal are x: "<< msg.vertex.loc_x<<" y: "<<msg.vertex.loc_y<<endl;
@@ -172,6 +194,7 @@ void Agent::ChangePlan(const distributed_mapf::PathMsg& msg) {
     cout << "changing plan: " << endl;
     list<planning::GraphIndex> new_plan;
     ConvertPathMsgToGraphIndexList(msg, new_plan);
+    UpdatePlanToCurrentTime(msg.clock, clock_cnt_, new_plan);
     my_plan_ = new_plan;
 
     distributed_mapf::PathMsg plan_msg;
@@ -196,7 +219,9 @@ void Agent::JointReplan(const list<planning::GraphIndex>& recieved_plan, unsigne
     mapf_graph->SetWindow(collision_vertex_, 
                           params_.window_size_x,
                           params_.window_size_y);
+    cout << "my plan. ";
     mapf_graph->AddAgentToJointSpace(agent_id_, my_plan_);
+    cout << "recieved plan. ";
     mapf_graph->AddAgentToJointSpace(other_agent_id, recieved_plan);
     mapf_graph->MergeAgentGraphs();
     cout << "Done merge joint graph." << endl;
