@@ -30,7 +30,8 @@ namespace defs {
     // client sim params
     const static unsigned int reached_goal_wait_time_upper = 9;
     const static unsigned int reached_goal_wait_time_lower = 3; 
-
+    
+    const static unsigned int agent_heartbeat_timeout = 10;
 
     // names
     const static std::string plan_topic = "plan_topic";

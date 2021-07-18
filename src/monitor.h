@@ -54,6 +54,26 @@ public:
         }
     }
 
+    void RemoveCrashedAgent(unsigned int agent_id) {
+        // agent is crashed if it has more then <defs::agent_heartbeat_timeout> clocks
+        // it did not send a heartbeat.
+        cout << "------------------------------------" << endl;
+        cout << " removing crashed agent " << agent_id << endl;
+        cout << "------------------------------------" << endl;
+        auto crashed_agent_index = agent_id_to_index_[agent_id];
+        agent_id_to_index_.erase(agent_id);
+        agent_colors_.erase(agent_id);       
+        agents_heartbeat_last_clock_.erase(agent_id);
+        vector_clk_.erase(agent_id);
+        
+        for (auto &it : agent_id_to_index_) {
+            if (it.second > crashed_agent_index)
+                it.second--;
+        }
+        all_paths_.erase(all_paths_.begin() + crashed_agent_index);
+        all_locs_.erase(all_locs_.begin() + crashed_agent_index);
+    }
+
     void PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 
         cout << "\nPlanMsgCallback called. ";
@@ -86,6 +106,17 @@ public:
             cout << ", ";
         }
         cout << endl;
+        
+        // check for crashed agents and remove them.
+        list<unsigned int> crashed_agents;
+        for (const auto& it: agents_heartbeat_last_clock_) 
+            if (clock_cnt_ > it.second + defs::agent_heartbeat_timeout ) 
+                crashed_agents.push_back(it.first);
+        
+        for (const auto& agent_id: crashed_agents) {
+            RemoveCrashedAgent(agent_id);
+        } 
+
         UpdateLocations();
         clock_cnt_++;
         if (clock_cnt_ != clkmsg.clock) {
@@ -100,16 +131,19 @@ public:
 
     void RegisterMsgCallback(const distributed_mapf::RegMsg& msg) {
         //cout << " Register agent " << msg.sender_id << endl;
-        if (agent_colors_.count(msg.sender_id) > 0)
-            return;
-        agent_colors_[msg.sender_id] = msg.sender_color;
+        if (agent_colors_.count(msg.sender_id) > 0) {
+            agents_heartbeat_last_clock_[msg.sender_id] = clock_cnt_;
+        } else {
+            agents_heartbeat_last_clock_[msg.sender_id] = clock_cnt_;
+            agent_colors_[msg.sender_id] = msg.sender_color;
+        }
     }
 
 
     void AddPath(unsigned int sender_id, list<GraphIndex> path_list,
                  unsigned long agent_clock, unsigned long agent_vector_clk) {
 
-        cout << "Got new path from " << sender_id << ", adding it" << endl;
+        //cout << "Got new path from " << sender_id << ", adding it" << endl;
         //find index from agent_ids array
         if (agent_id_to_index_.count(sender_id) == 0) {
             // sanitiy check
@@ -120,25 +154,25 @@ public:
             //Add path corresponding to agent_id
             all_paths_.push_back(path_list);
             all_locs_.push_back(all_paths_.back().begin());
-            cout << "start of path for agent:" << path_list.begin()->pprint(true,false)
-                 << "end of path: " << path_list.back().pprint(true, true);
+            //cout << "start of path for agent:" << path_list.begin()->pprint(true,false)
+            //     << "end of path: " << path_list.back().pprint(true, true);
             size_t agent_index = all_paths_.size()-1;
             agent_id_to_index_[sender_id] = agent_index;
             vector_clk_[sender_id] = agent_vector_clk;
-            cout << "Agent clock:" << agent_clock << " my clock:" << clock_cnt_ << endl;
+            //cout << "Agent clock:" << agent_clock << " my clock:" << clock_cnt_ << endl;
             alignLocWithClockDiff(agent_clock, agent_index); 
         } else {
             size_t agent_index = agent_id_to_index_[sender_id];
-            cout << "Updating the plan for agent " << sender_id << " index " << agent_index << endl;
+            //cout << "Updating the plan for agent " << sender_id << " index " << agent_index << endl;
             //cout << "New plan:" << endl;
             //planning::PrintPlan(path_list);
             all_paths_[agent_index] = path_list;
             all_locs_[agent_index]  = all_paths_[agent_index].begin();
             vector_clk_[sender_id]  = agent_vector_clk;
-            cout << "Start of new path for agent:" << path_list.begin()->pprint(true, false)
-                 << "end of path: " << path_list.back().pprint(true, true);
+            //cout << "Start of new path for agent:" << path_list.begin()->pprint(true, false)
+            //     << "end of path: " << path_list.back().pprint(true, true);
             // To set the location look at the clock of where that message was
-            cout << "Agent clock:" << agent_clock << " my clock:" << clock_cnt_ << endl;
+            //cout << "Agent clock:" << agent_clock << " my clock:" << clock_cnt_ << endl;
             alignLocWithClockDiff(agent_clock, agent_index);            
         }
     }
@@ -277,8 +311,8 @@ private:
             cout << "ERROR: agent_clock is ahead of monitor clock!" << endl;
             throw;
         }
-        cout << "--> Timedelta " << time_delta << ". Incrementing agent position " 
-             << time_delta << " times for agent " << agent_index << endl;
+        //cout << "--> Timedelta " << time_delta << ". Incrementing agent position " 
+        //     << time_delta << " times for agent " << agent_index << endl;
         //cout << "Path is:";
         //planning::PrintPlan(all_paths_[agent_index]);
         //cout << "Path progression:" << endl;
@@ -301,6 +335,7 @@ private:
     vector<LocItr> all_locs_;
     unordered_map<unsigned int, size_t> agent_id_to_index_;
     unordered_map<unsigned int, uint32_t> agent_colors_;
+    unordered_map<unsigned int, unsigned long> agents_heartbeat_last_clock_;
 
     ros::Publisher viz_pub_;
     amrl_msgs::VisualizationMsg viz_msg_;
