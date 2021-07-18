@@ -66,8 +66,14 @@ static void UpdatePlanToCurrentTime(unsigned long sender_clock_stamp,
         cout << "ERROR: Impossible situation where recieved clock is smaller then sent clock." << endl;
         throw;
     }
-    for (auto i = 0; i < time_delta; i++) {
-        plan.pop_front();
+    if (plan.size() <= time_delta) {
+        auto goal = plan.back(); 
+        plan.clear();
+        plan.push_back(goal);
+    } else {
+        for (auto i = 0; i < time_delta; i++) {
+            plan.pop_front();
+        }
     }
 }
 
