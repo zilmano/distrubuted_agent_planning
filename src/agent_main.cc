@@ -122,6 +122,7 @@ distributed_mapf::PathMsg makeNotifyMsg(pid_t pid) {
   cmd_msg.set_new_plan = false;
   cmd_msg.clock = agent_->GetClockCnt();
   cmd_msg.agent_vector_clk = agent_->GetOwnVectorClk();
+  cmd_msg.delayed = false;
   agent::ConvertGraphIndexListToPathMsg(agent_->GetPlan(), cmd_msg);
   return cmd_msg;
 }
@@ -204,6 +205,7 @@ void test_plan_comm(int argc,char **argv) {
   //planning::Graph agentGraph = agent_->GetLocalGraph();
   agent_->Plan(start, goal);
   agent_->PublishRegister();
+  bool first_iter = true;
   loop_rate.sleep();
   while (ros::ok()) {
       
@@ -217,7 +219,10 @@ void test_plan_comm(int argc,char **argv) {
 
       ros::spinOnce();
       distributed_mapf::PathMsg cmd_msg = makeNotifyMsg(pid);
-      agent_->PublishPlan(cmd_msg);
+      if (first_iter) {
+        agent_->PublishPlan(cmd_msg);
+        first_iter = false;
+      }
       agent_->PublishRegister();
       agent_->ClearIssuedCommands(); // This, using the 'issued_command_to' member
                                      // is a temporary solution to a corner case

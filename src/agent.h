@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unordered_set>
 #include <iterator>
+#include <random>
 
 #include "distributed_mapf/Vertex.h"
 #include "distributed_mapf/PathMsg.h"
@@ -53,13 +54,43 @@ static void ConvertGraphIndexListToPathMsg(const list<planning::GraphIndex>& pla
     }
 }
 
+static void UpdatePlanToCurrentTime(unsigned long sender_clock_stamp,
+                                    unsigned long my_clock_stamp, 
+                                    list<planning::GraphIndex>& plan) {
+    unsigned long time_delta = (my_clock_stamp - sender_clock_stamp);
+    
+    cout << "  DBG::updating plan to current time. time delta:" << time_delta 
+         << "my " << my_clock_stamp << " his " << sender_clock_stamp <<endl;
+
+    if (sender_clock_stamp > my_clock_stamp) {
+        cout << "ERROR: Impossible situation where recieved clock is smaller then sent clock." << endl;
+        throw;
+    }
+    if (plan.size() <= time_delta) {
+        auto goal = plan.back(); 
+        plan.clear();
+        plan.push_back(goal);
+    } else {
+        for (auto i = 0; i < time_delta; i++) {
+            plan.pop_front();
+        }
+    }
+}
+
 
 class Agent {
 
 public:
     Agent(ros::NodeHandle *n, Params params, unsigned int id, uint32_t color=0x00FF00): 
           n_(n), params_(params), agent_id_(id), done_(false), ideal_(false), 
-          clock_cnt_(0), color_(color), own_vector_clk_(0) {}
+          clock_cnt_(0), color_(color), own_vector_clk_(0) {
+
+            gen_.seed(time(0));
+            msg_drop_bernoulli_ = std::bernoulli_distribution(defs::msg_drop_prob);
+            msg_delay_bernoulli_ = std::bernoulli_distribution(defs::msg_delay_prob); 
+            // delay message between 2-6
+            msg_delay_time_gen_ = std::uniform_int_distribution<unsigned int>(2, 6);
+        }
 
     void InitPublishers() {
         plan_publish_ = n_->advertise<distributed_mapf::PathMsg>(defs::plan_topic, 1000);
@@ -315,6 +346,12 @@ private:
 
     // vector clock;
     unsigned long own_vector_clk_;
+
+    std::default_random_engine gen_;
+    std::bernoulli_distribution msg_drop_bernoulli_;
+    std::bernoulli_distribution msg_delay_bernoulli_;
+    std::uniform_int_distribution<unsigned int> msg_delay_time_gen_;
+
 };
 
 }
