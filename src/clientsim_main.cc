@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
       goal_change_step = goal_change_step_dist(generator);
 
     }
-    cout << "clock tick..." << endl;
+    //cout << "clock tick..." << endl;
     ros::spinOnce();
     step_cnt += 1;
     loop_rate.sleep();
