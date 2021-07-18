@@ -72,7 +72,6 @@ public:
         }
         all_paths_.erase(all_paths_.begin() + crashed_agent_index);
         all_locs_.erase(all_locs_.begin() + crashed_agent_index);
-
     }
 
     void PlanMsgCallback(const distributed_mapf::PathMsg& msg) {

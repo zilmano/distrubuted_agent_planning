@@ -21,8 +21,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
     }
 
     if (agent_id_ != (unsigned int) msg.sender_id) {
-        cout << endl << "Got msg" << endl;
-        // Drop the packet if the random number is not multiple of ten
+        cout << "Got msg" << endl;
         if (!ideal_) {
             /*srand (time(NULL));
             int first_random_num = rand() % 100 + 1;
@@ -32,7 +31,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
             int second_random_num = rand() % 90 + 1;
             if (second_random_num%3==0)
                 sleep(2);*/
-            
+
             // It is C++ not C, let's use std::random shall we....
             if (!msg.delayed && msg_drop_bernoulli_(gen_)) {
                 cout << "\n\n-------------------------------------" << endl
@@ -58,7 +57,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                 return;
             }
         }
-
+        
 
         /*ROS_INFO("Agent [%s]:I heard a plan message from agent [%s],"
                  "change command [%s]",
@@ -170,8 +169,8 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 void Agent::GoalMsgCallback(const distributed_mapf::GoalMsg& msg) {
     if (clock_cnt_ == 0) 
         return; //agent hasn't synced with central clock yet.
-
     if (agent_id_ == (unsigned int) msg.target_id) {
+        asked_for_new_goal_ = false;
         cout << "\n\n *****  Got new goal from client.. ******" << endl;
         cout << "x and y corrdinates of new goal are x: "<< msg.vertex.loc_x<<" y: "<<msg.vertex.loc_y<<endl;
 
@@ -235,6 +234,7 @@ void Agent::JointReplan(const list<planning::GraphIndex>& recieved_plan, unsigne
     cout << "my plan. ";
     mapf_graph->AddAgentToJointSpace(agent_id_, my_plan_);
     cout << "recieved plan. ";
+    mapf_graph->AddAgentToJointSpace(agent_id_, my_plan_);
     mapf_graph->AddAgentToJointSpace(other_agent_id, recieved_plan);
     mapf_graph->MergeAgentGraphs();
     cout << "Done merge joint graph." << endl;
