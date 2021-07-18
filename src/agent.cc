@@ -76,6 +76,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                 << "Information message. But vector clock says that message is stale. Ignoring." << endl << endl;
                 return;
             }
+            PublishPlan(msg);
             vector_clk_[msg.sender_id]  = msg.agent_vector_clk;
             //message from agent A to B notifying of A' change of plan.
             list<planning::GraphIndex> recieved_plan;
