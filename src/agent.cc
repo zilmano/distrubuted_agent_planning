@@ -15,43 +15,50 @@ void Agent::networkModel() {
 
 void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
 
-    /*if (start_time==-1){
-    time(&start_time);
-    }
-
-    time(&end_time);
-    int time_taken = int(end_time - start_time);
-    if(time_taken%120==0){
-        check_collisions((int) msg.sender_id);
-
-    }
-    check_collisions((int) msg.sender_id);*/
-
-    // OLEG TODO: move the following if's contect to networkModel function,
-    //            so that we can use the same network simulation for all topics.
-    
-    /*list<planning::GraphIndex> recievedPlan_temp;
-    ConvertPathMsgToGraphIndexList(msg, recievedPlan_temp);
-    add_path(msg.sender_id, recievedPlan_temp);
-    */
-    
     if (clock_cnt_ == 0) {
-        return; // agent has not sync with the clock server yet.
+        cout << endl;
+        return; // agent has not synced with the central clock server yet.
     }
 
     if (agent_id_ != (unsigned int) msg.sender_id) {
         cout << endl << "Got msg" << endl;
         // Drop the packet if the random number is not multiple of ten
         if (!ideal_) {
-            srand (time(NULL));
+            /*srand (time(NULL));
             int first_random_num = rand() % 100 + 1;
             if(first_random_num%10==0)
                 return;
             // Delay the packet if the random number is multple of 3.
             int second_random_num = rand() % 90 + 1;
             if (second_random_num%3==0)
-                sleep(2);
+                sleep(2);*/
+            
+            // It is C++ not C, let's use std::random shall we....
+            if (!msg.delayed && msg_drop_bernoulli_(gen_)) {
+                cout << "\n\n-------------------------------------" << endl
+                 << "NETWORK DELAY IN PROGRES......................" << endl
+                 << "--------------------------------------------\n\n";
+                cout << "Network issue - Message dropped." << endl << endl;
+                return;
+            } else if(!msg.delayed && msg_delay_bernoulli_(gen_)) {
+                cout << "\n\n-------------------------------------" << endl
+                 << "NETWORK DELAY IN PROGRES......................" << endl
+                 << "--------------------------------------------\n\n";
+                cout << "Network issue - Message delayed" << endl << endl;
+                std::thread pubthread([this](distributed_mapf::PathMsg msg){
+                    unsigned int delay = msg_delay_time_gen_(gen_);
+                    sleep(delay);
+                    cout << "\n--------------------------------------------" << endl;
+                    cout << "Thread:: Message delay finished, publishing............." << endl
+                          << "---------------------------------------------\n\n";
+                    msg.delayed = true;
+                    PublishPlan(msg);
+                }, msg);
+                pubthread.detach();
+                return;
+            }
         }
+
 
         /*ROS_INFO("Agent [%s]:I heard a plan message from agent [%s],"
                  "change command [%s]",
@@ -106,6 +113,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                         reply_msg.set_new_plan = true;
                         reply_msg.clock = clock_cnt_;
                         reply_msg.agent_vector_clk = own_vector_clk_;
+                        reply_msg.delayed = false;
                         ConvertGraphIndexListToPathMsg(agent_path, reply_msg);
                         cout << "Agent::" << agent_id_ 
                              << ":: Send new plan to other agent " << reply_msg.target_id  
@@ -153,6 +161,8 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
             cout << "Issued command to " << msg.sender_id << " But not yielding since my id is smaller" << endl;
            }
         }
+    } else {
+        cout << endl;
     }
 }
 
@@ -179,6 +189,7 @@ void Agent::GoalMsgCallback(const distributed_mapf::GoalMsg& msg) {
             plan_msg.set_new_plan = false;
             plan_msg.clock = clock_cnt_;
             plan_msg.agent_vector_clk = own_vector_clk_; // Is this coorect?
+            plan_msg.delayed = false;
             cout<<"\nVector clock for newly published plan is "<<own_vector_clk_<<endl;
             ConvertGraphIndexListToPathMsg(my_plan_, plan_msg);
             PublishPlan(plan_msg);
@@ -203,6 +214,7 @@ void Agent::ChangePlan(const distributed_mapf::PathMsg& msg) {
     plan_msg.set_new_plan = false;
     plan_msg.clock = clock_cnt_;
     plan_msg.agent_vector_clk = own_vector_clk_;
+    plan_msg.delayed = false;
     //cout<<"\nVector clock for newly published plan is "<<own_vector_clk_<<endl;
     ConvertGraphIndexListToPathMsg(my_plan_, plan_msg);
     PublishPlan(plan_msg);
