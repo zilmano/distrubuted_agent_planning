@@ -83,7 +83,7 @@ class Agent {
 public:
     Agent(ros::NodeHandle *n, Params params, unsigned int id, uint32_t color=0x00FF00): 
           n_(n), params_(params), agent_id_(id), done_(false), ideal_(false), 
-          clock_cnt_(0), color_(color), own_vector_clk_(0) {
+          clock_cnt_(0), color_(color), own_vector_clk_(0), asked_for_new_goal_(false) {
 
             gen_.seed(time(0));
             msg_drop_bernoulli_ = std::bernoulli_distribution(defs::msg_drop_prob);
@@ -106,7 +106,7 @@ public:
         test_publish_.publish(msg);
     }
 
-    void PublishRegister() {
+    void PublishRegister(bool request_goal=false) {
         distributed_mapf::RegMsg msg;
         msg.sender_id = agent_id_;
         msg.sender_color = color_;
@@ -123,6 +123,8 @@ public:
                                                 my_plan_.back().y); 
         msg.sender_goal.loc_x = goal_loc.x();
         msg.sender_goal.loc_y = goal_loc.y();
+
+        msg.request_goal = request_goal;
 
         register_publish_.publish(msg);
     }
@@ -222,6 +224,14 @@ public:
             for (auto i = 0; 
                 i < clock_diff && std::next(current_loc_, 1) != my_plan_.end(); ++i) {
                 current_loc_++;
+            }
+            if (std::next(current_loc_, 1) == my_plan_.end()) {
+                cout << "Agent has reached its goal. Idle." << endl;
+                if (!asked_for_new_goal_) {
+                    cout << "Asking clientsim for new goal..." << endl;
+                    PublishRegister(true);
+                    asked_for_new_goal_ = true; 
+                }
             }
         }
         cout << "Got clock " << clkmsg.clock << ". Current loc:" << current_loc_->pprint(true, true);
@@ -332,8 +342,6 @@ private:
     list<planning::GraphIndex>::const_iterator current_loc_;
     planning::GraphIndex collision_vertex_;
 
-    
-
     //state
     // TODO: Change this state to a better one, once we stamp the command 
     //       message back to the notify that trigered it, that the best way to keep on track.
@@ -346,7 +354,9 @@ private:
 
     // vector clock;
     unsigned long own_vector_clk_;
+    bool asked_for_new_goal_;
 
+    // network un-reliabilty model
     std::default_random_engine gen_;
     std::bernoulli_distribution msg_drop_bernoulli_;
     std::bernoulli_distribution msg_delay_bernoulli_;

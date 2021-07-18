@@ -141,6 +141,7 @@ void Agent::GoalMsgCallback(const distributed_mapf::GoalMsg& msg) {
     if (clock_cnt_ == 0) 
         return; //agent hasn't synced with central clock yet.
     if (agent_id_ == (unsigned int) msg.target_id) {
+        asked_for_new_goal_ = false;
         cout << "\n\n *****  Got new goal from client.. ******" << endl;
         cout << "x and y corrdinates of new goal are x: "<< msg.vertex.loc_x<<" y: "<<msg.vertex.loc_y<<endl;
 
