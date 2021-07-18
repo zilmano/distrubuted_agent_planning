@@ -195,7 +195,7 @@ void test_plan_comm(int argc,char **argv) {
   params.plan_margin_to_wall = defs::plan_margin_to_wall;
 
   agent_ = new agent::Agent(&n, params, pid, color);
-  agent_->SetIdeal();
+  //agent_->SetIdeal();
   initComm(n);
   initVisualizer(n);
   ros::Rate loop_rate(0.5);
