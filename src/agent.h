@@ -29,6 +29,8 @@ struct Params {
     float plan_margin_to_wall;
     float replan_dist;
     float pure_pursuit_circ_rad;
+    int delay_factor;
+    int drop_factor;
     //float w_fpl;
     //float w_clr;
     //float w_dist;

@@ -193,6 +193,15 @@ void test_plan_comm(int argc,char **argv) {
   params.plan_num_of_orient = defs::plan_num_of_orient;
   params.plan_margin_to_wall = defs::plan_margin_to_wall;
 
+  params.delay_factor = 3;
+  params.drop_factor = 3;
+
+  if (argc == 8){
+	  params.delay_factor = std::stoi(argv[6]);
+	  params.drop_factor = std::stoi(argv[7]);
+  }
+
+
   agent_ = new agent::Agent(&n, params, pid, color);
   agent_->SetIdeal();
   initComm(n);
