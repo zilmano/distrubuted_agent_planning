@@ -23,14 +23,16 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
     if (agent_id_ != (unsigned int) msg.sender_id) {
         cout << "Got msg" << endl;
         if (!ideal_) {
-            /*srand (time(NULL));
-            int first_random_num = rand() % 100 + 1;
-            if(first_random_num%10==0)
+	    
+	    
+            srand (time(NULL));
+            int first_random_num = rand() % 4 + 1;
+            if(params_.drop_factor!=0 && (first_random_num%params_.drop_factor)==0)
                 return;
             // Delay the packet if the random number is multple of 3.
-            int second_random_num = rand() % 90 + 1;
-            if (second_random_num%3==0)
-                sleep(2);*/
+            int second_random_num = rand() % 4 + 1;
+            if ( params_.delay_factor!=0 && (second_random_num%params_.delay_factor)==0)
+                sleep(2);
 
             // It is C++ not C, let's use std::random shall we....
             if (!msg.delayed && msg_drop_bernoulli_(gen_)) {

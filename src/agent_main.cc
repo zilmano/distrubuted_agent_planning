@@ -163,7 +163,7 @@ void test_plan_comm(int argc,char **argv) {
     start = navigation::PoseSE2(-14, 9, 0);
     goal = navigation::PoseSE2(0, 18, 0);
   } else {
-    if (argc != 5 && argc != 6) {
+    if (argc != 5 && argc != 6 && argc!=8) {
       cout << "ERROR: need to provide start and goal" << endl;
       throw;
     }
@@ -194,8 +194,8 @@ void test_plan_comm(int argc,char **argv) {
   params.plan_num_of_orient = defs::plan_num_of_orient;
   params.plan_margin_to_wall = defs::plan_margin_to_wall;
 
-  params.delay_factor = 3;
-  params.drop_factor = 3;
+  params.delay_factor = 0;
+  params.drop_factor = 0;
 
   if (argc == 8){
 	  params.delay_factor = std::stoi(argv[6]);
