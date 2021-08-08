@@ -44,7 +44,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                  << "NETWORK DELAY IN PROGRES......................" << endl
                  << "--------------------------------------------\n\n";
                 cout << "Network issue - Message delayed" << endl << endl;
-                std::thread pubthread([this](distributed_mapf::PathMsg msg){
+                /*std::thread pubthread([this](distributed_mapf::PathMsg msg){
                     unsigned int delay = msg_delay_time_gen_(gen_);
                     sleep(delay);
                     cout << "\n--------------------------------------------" << endl;
@@ -53,7 +53,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                     msg.delayed = true;
                     PublishPlan(msg);
                 }, msg);
-                pubthread.detach();
+                pubthread.detach();*/
                 return;
             }
         }
@@ -75,7 +75,7 @@ void Agent::PlanMsgCallback(const distributed_mapf::PathMsg& msg) {
                 << "Information message. But vector clock says that message is stale. Ignoring." << endl << endl;
                 return;
             }
-            PublishPlan(msg);
+            //PublishPlan(msg);
             vector_clk_[msg.sender_id]  = msg.agent_vector_clk;
             //message from agent A to B notifying of A' change of plan.
             list<planning::GraphIndex> recieved_plan;
@@ -234,7 +234,6 @@ void Agent::JointReplan(const list<planning::GraphIndex>& recieved_plan, unsigne
     cout << "my plan. ";
     mapf_graph->AddAgentToJointSpace(agent_id_, my_plan_);
     cout << "recieved plan. ";
-    mapf_graph->AddAgentToJointSpace(agent_id_, my_plan_);
     mapf_graph->AddAgentToJointSpace(other_agent_id, recieved_plan);
     mapf_graph->MergeAgentGraphs();
     cout << "Done merge joint graph." << endl;
